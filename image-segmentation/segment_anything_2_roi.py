@@ -34,7 +34,7 @@ class ROI(BaseModel):
 
 @compile(
     tag="@meta/segment-anything-2-roi",
-    description="Segment an image region of interest using Segment Anything 2.",
+    description="Segment an image region of interest using Segment Anything Model 2.",
     sandbox=Sandbox()
         .pip_install("torchvision", index_url="https://download.pytorch.org/whl/cpu")
         .pip_install("huggingface_hub", "onnxruntime"),
@@ -56,7 +56,7 @@ def predict(
     Parameter.Generic(description="Boolean mask with shape (H,W).")
 ]:
     """
-    Segment an image region of interest using Segment Anything 2.
+    Segment an image region of interest using Segment Anything Model 2.
     """
     # Preprocess image
     width, height = image.size
