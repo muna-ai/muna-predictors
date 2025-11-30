@@ -4,13 +4,8 @@
 #
 
 # /// script
-# requires-python = ">=3.11"
-# dependencies = [
-#     "muna",
-#     "rich",
-#     "torchvision",
-#     "ultralytics"
-# ]
+# requires-python = ">=3.12"
+# dependencies = ["muna", "rich", "torchvision", "ultralytics"]
 # ///
 
 from muna import compile, Parameter, Sandbox

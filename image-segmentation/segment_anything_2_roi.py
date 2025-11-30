@@ -3,6 +3,11 @@
 #   Copyright © 2025 NatML Inc. All Rights Reserved.
 #
 
+# /// script
+# requires-python = ">=3.12"
+# dependencies = ["huggingface_hub", "muna", "onnxruntime", "torchvision"]
+# ///
+
 from huggingface_hub import hf_hub_download
 from muna import compile, Parameter, Sandbox
 from muna.beta import OnnxRuntimeInferenceSessionMetadata
