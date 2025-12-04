@@ -162,18 +162,11 @@ ANCHORS = _generate_ssd_anchors(**{
 })
 
 @compile(
-    tag="@anon/blazepose-detector-lite",
+    tag="@mediapipe/blazepose-detector-lite",
     description="Detect pose ROIs in an image with BlazePose Detector (lite).",
     sandbox=Sandbox()
         .pip_install("torch", "torchvision", index_url="https://download.pytorch.org/whl/cpu")
         .pip_install("tensorflow"),
-    targets=[ # We don't yet support `aarch64-unknown-linux-gnu` (Linux arm64)
-        "aarch64-linux-android", "armv7a-linux-androideabi",
-        "arm64-apple-darwin", "arm64-apple-ios",
-        "wasm32-unknown-unknown",
-        "x86_64-unknown-linux-gnu",
-        "x86_64-pc-windows-msvc"
-    ],
     access="public",
     metadata=[
         TFLiteInterpreterMetadata(interpreter=interpreter, model_path=model_path),
