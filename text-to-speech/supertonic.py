@@ -223,7 +223,7 @@ def _unicode_process(text_list: list[str]) -> tuple[ndarray, ndarray]:
     )
     return text_ids, text_mask
 
-def _chunk_text( # INCOMPLETE # Make functional
+def _chunk_text(
     text: str,
     *,
     max_len: int=300
@@ -235,9 +235,6 @@ def _chunk_text( # INCOMPLETE # Make functional
     paragraphs = [p.strip() for p in split(r"\n\s*\n+", text.strip()) if p.strip()]
     chunks = []
     for paragraph in paragraphs:
-        paragraph = paragraph.strip()
-        if not paragraph:
-            continue
         # Split by sentence boundaries (period, question mark, exclamation mark followed by space)
         # But exclude common abbreviations like Mr., Mrs., Dr., etc. and single capital letters like F.
         pattern = r"(?<!Mr\.)(?<!Mrs\.)(?<!Ms\.)(?<!Dr\.)(?<!Prof\.)(?<!Sr\.)(?<!Jr\.)(?<!Ph\.D\.)(?<!etc\.)(?<!e\.g\.)(?<!i\.e\.)(?<!vs\.)(?<!Inc\.)(?<!Ltd\.)(?<!Co\.)(?<!Corp\.)(?<!St\.)(?<!Ave\.)(?<!Blvd\.)(?<!\b[A-Z]\.)(?<=[.!?])\s+"
