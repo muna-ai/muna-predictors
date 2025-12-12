@@ -12,30 +12,31 @@ from huggingface_hub import hf_hub_download
 from json import loads as load_json
 from muna import compile, Parameter, Sandbox
 from muna.beta import OnnxRuntimeInferenceSessionMetadata
+from muna.beta.openai import Annotations
 from numpy import (
-    arange, array, asarray, expand_dims, float32, int32,
-    int64, load as load_npz, max, ndarray, savez
+    arange, array, asarray, expand_dims, float32,
+    int32, int64, load as load_npz, max, ndarray,
+    savez, uint16, zeros
 )
 from numpy.random import randn
 from onnxruntime import InferenceSession
 from pathlib import Path
-from re import split
+from re import compile as re_compile, split, sub, UNICODE
 from torch import cat, from_numpy
 from torch.nn.functional import pad
 from typing import Annotated, Literal
-
-from py.helper import UnicodeProcessor
+from unicodedata import normalize
 
 GenerationVoice = Literal["M1", "M2", "F1", "F2"]
 
 # Download models
-HF_REPO_ID = "Supertone/supertonic"
-duration_predictor_path = hf_hub_download(repo_id=HF_REPO_ID, filename="onnx/duration_predictor.onnx")
-text_encoder_path = hf_hub_download(repo_id=HF_REPO_ID, filename="onnx/text_encoder.onnx")
-vector_estimator_path = hf_hub_download(repo_id=HF_REPO_ID, filename="onnx/vector_estimator.onnx")
-vocoder_path = hf_hub_download(repo_id=HF_REPO_ID, filename="onnx/vocoder.onnx")
-config_path = hf_hub_download(repo_id=HF_REPO_ID, filename="onnx/tts.json")
-unicode_indexer_path = hf_hub_download(repo_id=HF_REPO_ID, filename="onnx/unicode_indexer.json")
+hf_download = lambda path: Path(hf_hub_download(repo_id="Supertone/supertonic", filename=path))
+duration_predictor_path = hf_download("onnx/duration_predictor.onnx")
+text_encoder_path = hf_download("onnx/text_encoder.onnx")
+vector_estimator_path = hf_download("onnx/vector_estimator.onnx")
+vocoder_path = hf_download("onnx/vocoder.onnx")
+config_path = hf_download("onnx/tts.json")
+unicode_indexer_path = hf_download("onnx/unicode_indexer.json")
 
 # Download voices
 VOICE_STYLE_FILES: dict[GenerationVoice, str] = {
@@ -48,8 +49,8 @@ voices_path = Path("voices.npz")
 if not voices_path.exists():
     voices = dict[str, ndarray]()
     for voice, remote_path in VOICE_STYLE_FILES.items():
-        local_path = hf_hub_download(repo_id=HF_REPO_ID, filename=remote_path)
-        voice_data = load_json(Path(local_path).read_text())
+        local_path = hf_download(remote_path)
+        voice_data = load_json(local_path.read_text())
         voices[f"{voice}_style_ttl"] = asarray(voice_data["style_ttl"]["data"], dtype=float32)
         voices[f"{voice}_style_dp"] = asarray(voice_data["style_dp"]["data"], dtype=float32)
     savez(voices_path, **voices)
@@ -60,7 +61,7 @@ text_encoder = InferenceSession(text_encoder_path)
 vector_estimator = InferenceSession(vector_estimator_path)
 vocoder = InferenceSession(vocoder_path)
 voices = load_npz(voices_path)
-text_processor = UnicodeProcessor(unicode_indexer_path)
+unicode_indexer = load_json(unicode_indexer_path.read_text())
 
 # Load configuration
 config = load_json(Path(config_path).read_text())
@@ -68,6 +69,37 @@ sample_rate: int = config["ae"]["sample_rate"]
 base_chunk_size = config["ae"]["base_chunk_size"]
 chunk_compress_factor = config["ttl"]["chunk_compress_factor"]
 latent_dim = config["ttl"]["latent_dim"]
+
+# Text pre-processing
+EMOJI_PATTERN = re_compile(
+    "[\U0001f600-\U0001f64f"  # emoticons
+    "\U0001f300-\U0001f5ff"  # symbols & pictographs
+    "\U0001f680-\U0001f6ff"  # transport & map symbols
+    "\U0001f700-\U0001f77f"
+    "\U0001f780-\U0001f7ff"
+    "\U0001f800-\U0001f8ff"
+    "\U0001f900-\U0001f9ff"
+    "\U0001fa00-\U0001fa6f"
+    "\U0001fa70-\U0001faff"
+    "\u2600-\u26ff"
+    "\u2700-\u27bf"
+    "\U0001f1e6-\U0001f1ff]+",
+    flags=UNICODE
+)
+CHAR_REPLACEMENTS: dict[str, str] = {
+    "–": "-", "‑": "-", "—": "-", "¯": " ", "_": " ",
+    "“": '"', "”": '"', "‘": "'", "’": "'", "´": "'",
+    "`": "'", "[": " ", "]": " ", "|": " ", "/": " ",
+    "#": " ",  "→": " ", "←": " ",
+}
+EXPR_REPLACEMENTS: dict[str, str] = {
+    "@": " at ",
+    "e.g.,": "for example, ",
+    "i.e.,": "that is, ",
+}
+COMBINING_DIACRITICS_RE = re_compile(r"[\u0302\u0303\u0304\u0305\u0306\u0307\u0308\u030A\u030B\u030C\u0327\u0328\u0329\u032A\u032B\u032C\u032D\u032E\u032F]")
+SPECIAL_SYMBOLS_RE = re_compile(r"[♥☆♡©\\]")
+END_PUNCT_RE = re_compile(r"[.!?;:,'\"')\]}…。」』】〉》›»]$")
 
 @compile(
     tag="@supertone/supertonic",
@@ -85,8 +117,8 @@ latent_dim = config["ttl"]["latent_dim"]
 def generate_speech(
     text: Annotated[str, Parameter.Generic(description="Text to generate speech from.")],
     *,
-    voice: Annotated[GenerationVoice, Parameter.AudioVoice(description="Generation voice.")],
-    speed: Annotated[float, Parameter.AudioSpeed(
+    voice: Annotated[GenerationVoice, Annotations.AudioVoice(description="Generation voice.")],
+    speed: Annotated[float, Annotations.AudioSpeed(
         description="Voice speed multiplier.",
         min=0.25,
         max=2.0,
@@ -133,7 +165,7 @@ def generate_speech(
     # Return
     return wav.numpy()
 
-def _infer( # CHECK
+def _infer(
     text_list: list[str],
     *,
     style_dp: ndarray,
@@ -142,7 +174,7 @@ def _infer( # CHECK
     speed: float = 1.05
 ) -> tuple[ndarray, ndarray]:
     batch_size = len(text_list)
-    text_ids, text_mask = text_processor(text_list)
+    text_ids, text_mask = _unicode_process(text_list)
     dur_onnx = duration_predictor.run(None, {
         "text_ids": text_ids,
         "style_dp": style_dp,
@@ -170,7 +202,28 @@ def _infer( # CHECK
     wav = vocoder.run(None, { "latent": xt })[0]
     return wav, dur_onnx
 
-def _chunk_text( # CHECK # Make functional
+def _unicode_process(text_list: list[str]) -> tuple[ndarray, ndarray]:
+    """
+    Process unicode text into text IDs and mask.
+    """
+    processed = [_preprocess_text(t) for t in text_list]
+    text_ids_lengths = array([len(t) for t in processed], dtype=int64)
+    max_len = int(text_ids_lengths.max()) if len(text_ids_lengths) else 0
+    text_ids = zeros((len(processed), max_len), dtype=int64)
+    for i, text in enumerate(processed):
+        # Convert text into uint16 unicode codepoints (2 bytes).
+        # NOTE: ord(...) can exceed 65535 for some characters; we truncate to uint16.
+        unicode_vals = array([ord(char) for char in text], dtype=uint16)
+        indexed = array([unicode_indexer[int(v)] for v in unicode_vals], dtype=int64)
+        text_ids[i, : len(unicode_vals)] = indexed
+    text_mask = (
+        _length_to_mask(text_ids_lengths)
+        if len(processed)
+        else zeros((0, 1, 0), dtype=float32)
+    )
+    return text_ids, text_mask
+
+def _chunk_text( # INCOMPLETE # Make functional
     text: str,
     *,
     max_len: int=300
@@ -201,7 +254,51 @@ def _chunk_text( # CHECK # Make functional
             chunks.append(current_chunk.strip())
     return chunks
 
-def _sample_noisy_latent(duration: ndarray) -> tuple[ndarray, ndarray]: # CHECK
+def _preprocess_text(text: str) -> str:
+    """
+    Normalize and sanitize text before unicode indexing.
+    """
+    # TODO: Need advanced normalizer for better performance
+    text = normalize("NFKD", text)
+    # Remove emojis
+    text = EMOJI_PATTERN.sub("", text)
+    # Character replacements
+    for k, v in CHAR_REPLACEMENTS.items():
+        text = text.replace(k, v)
+    # Remove combining diacritics (FIXME for non-English)
+    text = COMBINING_DIACRITICS_RE.sub("", text)
+    # Remove special symbols
+    text = SPECIAL_SYMBOLS_RE.sub("", text)
+    # Replace known expressions
+    for k, v in EXPR_REPLACEMENTS.items():
+        text = text.replace(k, v)
+    # Fix spacing around punctuation
+    text = sub(r" ,", ",", text)
+    text = sub(r" \.", ".", text)
+    text = sub(r" !", "!", text)
+    text = sub(r" \?", "?", text)
+    text = sub(r" ;", ";", text)
+    text = sub(r" :", ":", text)
+    text = sub(r" '", "'", text)
+    # Remove duplicate quotes
+    while '""' in text:
+        text = text.replace('""', '"')
+    while "''" in text:
+        text = text.replace("''", "'")
+    while "``" in text:
+        text = text.replace("``", "`")
+    # Remove extra spaces
+    text = sub(r"\s+", " ", text).strip()
+    # If text doesn't end with punctuation, quotes, or closing brackets, add a period
+    if not END_PUNCT_RE.search(text):
+        text += "."
+    # Return
+    return text
+
+def _sample_noisy_latent(duration: ndarray) -> tuple[ndarray, ndarray]:
+    """
+    Sample noisy latent from normal distribution and apply mask.
+    """
     bsz = len(duration)
     wav_len_max = max(duration) * sample_rate
     wav_lengths = (duration * sample_rate).astype(int64)
@@ -216,7 +313,7 @@ def _sample_noisy_latent(duration: ndarray) -> tuple[ndarray, ndarray]: # CHECK
     noisy_latent = noisy_latent * latent_mask
     return noisy_latent, latent_mask
 
-def _get_latent_mask( # CHECK # Convert to PyTorch
+def _get_latent_mask(
     wav_lengths: ndarray,
     base_chunk_size: int,
     chunk_compress_factor: int
@@ -229,7 +326,7 @@ def _get_latent_mask( # CHECK # Convert to PyTorch
     latent_mask = _length_to_mask(latent_lengths)
     return latent_mask
 
-def _length_to_mask( # CHECK # Convert to PyTorch
+def _length_to_mask(
     lengths: ndarray,
     *,
     max_len: int | None=None
