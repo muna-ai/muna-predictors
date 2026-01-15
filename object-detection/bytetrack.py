@@ -5,7 +5,7 @@
 
 # /// script
 # requires-python = ">=3.12"
-# dependencies = ["lap", "muna", "torchvision", "ultralytics"]
+# dependencies = ["lap", "muna", "torchvision", "ultralytics==8.3.161"]
 # ///
 
 from argparse import Namespace
@@ -46,7 +46,7 @@ id_to_label = { -1: "" }
     description="Track multiple objects using the ByteTrack algorithm.",
     sandbox=Sandbox()
         .pip_install("torchvision", index_url="https://download.pytorch.org/whl/cpu")
-        .pip_install("lap", "ultralytics")
+        .pip_install("lap", "ultralytics==8.3.161")
         .pip_install("opencv-python-headless")
 )
 def track_objects(
