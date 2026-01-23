@@ -1,12 +1,18 @@
 #
 #   Muna
-#   Copyright © 2025 NatML Inc. All Rights Reserved.
+#   Copyright © 2026 NatML Inc. All Rights Reserved.
 #
+
+# /// script
+# requires-python = ">=3.11"
+# dependencies = ["huggingface_hub", "muna", "onnxruntime", "sounddevice==0.5.2"]
+# ///
 
 from huggingface_hub import hf_hub_download
 from json import loads
 from muna import compile, Parameter, Sandbox
 from muna.beta import OnnxRuntimeInferenceSessionMetadata
+from muna.beta.openai import Annotations
 from numpy import array, float32, fromfile, int64, load, ndarray, ones_like, savez
 from onnxruntime import InferenceSession
 from pathlib import Path
@@ -31,6 +37,8 @@ kokoro_model_path = hf_hub_download(
     repo_id="onnx-community/Kokoro-82M-ONNX",
     filename="onnx/model_fp16.onnx"
 )
+kokoro = InferenceSession(kokoro_model_path)
+sample_rate = 24_000
 
 # Download the vocabulary
 kokoro_tokenizer_path = hf_hub_download(
@@ -40,10 +48,11 @@ kokoro_tokenizer_path = hf_hub_download(
 KOKORO_VOCAB = loads(Path(kokoro_tokenizer_path).read_text())["model"]["vocab"]
 
 # Download ByT5-based grapheme to phoneme converter
-byt5_model_path = hf_hub_download(
+phonemizer_path = hf_hub_download(
     repo_id="OpenVoiceOS/g2p-mbyt5-12l-ipa-childes-espeak-onnx",
     filename="fdemelo_g2p-mbyt5-12l-ipa-childes-espeak.onnx"
 )
+phonemizer = InferenceSession(phonemizer_path)
 
 # Download and create an NPZ file of all Kokoro voices
 def _load_kokoro_voice(voice_name: str) -> ndarray:
@@ -57,36 +66,37 @@ kokoro_voices_path = Path("kokoro_voices.npz")
 if not kokoro_voices_path.exists():
     kokoro_voices = { voice_name: _load_kokoro_voice(voice_name) for voice_name in get_args(GenerationVoice) }
     savez(kokoro_voices_path, **kokoro_voices)
-
-# Load all voices from the NPZ file
 voices = load(kokoro_voices_path)
 
-# Load model and converter
-kokoro_model = InferenceSession(kokoro_model_path)
-byt5_model = InferenceSession(byt5_model_path)
-
 @compile(
-    tag="@hexgrad/kokoro-tts",
-    description="Perform text-to-speech with Kokoro TTS.",
     sandbox=Sandbox().pip_install("huggingface_hub", "numpy", "onnxruntime"),
     metadata=[
-        OnnxRuntimeInferenceSessionMetadata(session=kokoro_model, model_path=kokoro_model_path),
-        OnnxRuntimeInferenceSessionMetadata(session=byt5_model, model_path=byt5_model_path),
+        OnnxRuntimeInferenceSessionMetadata(session=kokoro, model_path=kokoro_model_path),
+        OnnxRuntimeInferenceSessionMetadata(session=phonemizer, model_path=phonemizer_path),
     ]
 )
-def generate_speech(
-    text: Annotated[str, Parameter.Generic(description="Text to generate speech from")],
+def kokoro_tts(
+    text: Annotated[
+        str,
+        Parameter.Generic(description="Text to generate speech from")
+    ],
     *,
-    voice: Annotated[GenerationVoice, Parameter.AudioVoice(description="Generation voice.")],
-    language: Annotated[GenerationLanguage, Parameter.Generic(description="Generation language.")]="en-US",
-    speed: Annotated[float, Parameter.AudioSpeed(
+    voice: Annotated[
+        GenerationVoice,
+        Annotations.AudioVoice(description="Generation voice.")
+    ],
+    language: Annotated[
+        GenerationLanguage,
+        Parameter.Generic(description="Generation language.")
+    ]="en-US",
+    speed: Annotated[float, Annotations.AudioSpeed(
         description="Voice speed multiplier.",
         min=0.5,
         max=2.0
     )]=1.0
 ) -> Annotated[ndarray, Parameter.Audio(
     description="Linear PCM audio samples with shape (F,) and sample rate 24KHz.",
-    sample_rate=24000
+    sample_rate=sample_rate
 )]:
     """
     Perform text-to-speech with Kokoro TTS.
@@ -106,7 +116,7 @@ def generate_speech(
     # Specify speed
     speed_spec = array([speed], dtype=float32)
     # Run inference
-    outputs = kokoro_model.run(None, {
+    outputs = kokoro.run(None, {
         "input_ids": padded_input_ids,
         "style": ref_s,
         "speed": speed_spec
@@ -132,7 +142,7 @@ def _convert_to_ipa(
     max_length = 510
     decoder_input_ids = [0]
     for idx in range(max_length):
-        logits = byt5_model.run(None, {
+        logits = phonemizer.run(None, {
             "input_ids": input_ids,
             "attention_mask": attention_mask,
             "decoder_input_ids": array(decoder_input_ids)[None]
@@ -152,13 +162,12 @@ def _convert_to_ipa(
 if __name__ == "__main__":
     import sounddevice as sd
     # Generate audio
-    audio = generate_speech(
+    audio = kokoro_tts(
         text="It was the best of times.",
         voice="bm_lewis",
         language="en-US",
         speed=1.0
     )
-    print(audio.shape)
     # Playback
-    sd.play(audio, samplerate=24_000)
+    sd.play(audio, samplerate=sample_rate)
     sd.wait()

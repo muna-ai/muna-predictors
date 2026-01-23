@@ -114,8 +114,6 @@ SPECIAL_SYMBOLS_RE = re_compile(r"[♥☆♡©\\]")
 END_PUNCT_RE = re_compile(r"[.!?;:,'\"')\]}…。」』】〉》›»]$")
 
 @compile(
-    tag="@supertone/supertonic-2",
-    description="Perform text-to-speech with Supertonic 2.",
     sandbox=Sandbox()
         .pip_install("torch", index_url="https://download.pytorch.org/whl/cpu")
         .pip_install("huggingface_hub", "onnxruntime"),
@@ -126,7 +124,7 @@ END_PUNCT_RE = re_compile(r"[.!?;:,'\"')\]}…。」』】〉》›»]$")
         OnnxRuntimeInferenceSessionMetadata(session=vocoder, model_path=vocoder_path),
     ]
 )
-def generate_speech(
+def supertonic_2(
     text: Annotated[
         str,
         Parameter.Generic(description="Text to generate speech from.")
@@ -362,7 +360,7 @@ def _length_to_mask(
 
 if __name__ == "__main__":
     import sounddevice as sd
-    audio = generate_speech(
+    audio = supertonic_2(
         text="Supertonic 2 is a multilingual text-to-speech model that supports English, Korean, Spanish, Portuguese, and French.",
         voice="F2",
         language="en"

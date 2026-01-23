@@ -1,6 +1,6 @@
 #
 #   Muna
-#   Copyright © 2025 NatML Inc. All Rights Reserved.
+#   Copyright © 2026 NatML Inc. All Rights Reserved.
 #
 
 # /// script
@@ -102,8 +102,6 @@ SPECIAL_SYMBOLS_RE = re_compile(r"[♥☆♡©\\]")
 END_PUNCT_RE = re_compile(r"[.!?;:,'\"')\]}…。」』】〉》›»]$")
 
 @compile(
-    tag="@supertone/supertonic",
-    description="Perform text-to-speech with Supertonic.",
     sandbox=Sandbox()
         .pip_install("huggingface_hub", "onnxruntime")
         .run_commands("git clone https://github.com/supertone-inc/supertonic.git"),
@@ -114,10 +112,16 @@ END_PUNCT_RE = re_compile(r"[.!?;:,'\"')\]}…。」』】〉》›»]$")
         OnnxRuntimeInferenceSessionMetadata(session=vocoder, model_path=vocoder_path),
     ]
 )
-def generate_speech(
-    text: Annotated[str, Parameter.Generic(description="Text to generate speech from.")],
+def supertonic(
+    text: Annotated[
+        str,
+        Parameter.Generic(description="Text to generate speech from.")
+    ],
     *,
-    voice: Annotated[GenerationVoice, Annotations.AudioVoice(description="Generation voice.")],
+    voice: Annotated[
+        GenerationVoice,
+        Annotations.AudioVoice(description="Generation voice.")
+    ],
     speed: Annotated[float, Annotations.AudioSpeed(
         description="Voice speed multiplier.",
         min=0.25,
@@ -138,7 +142,7 @@ def generate_speech(
     sample_rate=sample_rate,
 )]:
     """
-    Perform text-to-speech using the helper utilities.
+    Perform text-to-speech with Supertonic.
     """    
     # Perform TTS
     text_chunks = _chunk_text(text)
@@ -338,7 +342,7 @@ def _length_to_mask(
 
 if __name__ == "__main__":
     import sounddevice as sd
-    audio = generate_speech(
+    audio = supertonic(
         text="Supertonic is such an odd model.",
         voice="F2"
     )
