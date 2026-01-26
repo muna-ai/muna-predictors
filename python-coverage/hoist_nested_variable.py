@@ -1,6 +1,6 @@
 #
 #   Muna
-#   Copyright © 2025 NatML Inc. All Rights Reserved.
+#   Copyright © 2026 NatML Inc. All Rights Reserved.
 #
 
 # One major difference between Python and C++ is how each language handles scopes.
@@ -17,11 +17,11 @@
 from muna import compile
 import numpy as np
 
-@compile(
-    tag="@yusuf/hoist-nested-variable",
-    description="Hoist a nested variable."
-)
+@compile()
 def hoist_nested_variable() -> np.int64:
+    """
+    Hoist a nested variable.
+    """
     for i in range(2):
         result = 20
     return result

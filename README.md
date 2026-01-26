@@ -22,17 +22,7 @@ $ muna auth login <ACCESS KEY>
 ## Compiling a Function
 The [`predictors`](/predictors) directory contains several prediction functions, ranging from very simple functions to 
 AI inference with PyTorch. Internally, we use these functions to test language and library coverage in the compiler.
-To compile a function, first update the predictor tag with your Muna username:
-```py
-@compile(
-    tag="@username/some-function", # replace `username` with your Muna username
-    description="Compile a cool function."
-)
-def grader (score: float) -> str:
-    ...
-```
-
-Next, use the Muna CLI to compile the function, providing the path to the module where the function is defined:
+Use the Muna CLI to compile the function, providing the path to the module where the function is defined:
 ```sh
 # Compile the decorated function at the module path
 $ muna compile --overwrite path/to/module.py
@@ -41,22 +31,6 @@ $ muna compile --overwrite path/to/module.py
 The compiler will load the entrypoint function, create a remote sandbox, and compile the function:
 
 ![compiling a function](media/fma.gif)
-
-## Inspecting the Generated Code
-Once you compile a function, you can download the generated C++ code:
-```sh
-# Retrieve the generated C++ source code for a given predictor
-$ muna source --predictor @username/some-function
-```
-
-> [!NOTE]
-> Because our compiler can generate hundreds of implementations for a given predictor, we recommend 
-> using `muna source --prediction <id>` to get the generated C++ code for a specific prediction. The 
-> provided `id` **must have been provided directly by our API**.
-
-> [!WARNING]
-> The generated C++ code is provided for reference and cannot be compiled independently, as it depends on 
-> additional scaffolding provided by the Muna compiler toolchain.
 
 ## Useful Links
 - [Discover predictors to use in your apps](https://muna.ai/explore).

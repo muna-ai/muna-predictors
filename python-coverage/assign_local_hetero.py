@@ -1,15 +1,15 @@
 # 
 #   Muna
-#   Copyright © 2025 NatML Inc. All Rights Reserved.
+#   Copyright © 2026 NatML Inc. All Rights Reserved.
 #
 
 from muna import compile
 
-@compile(
-    tag="@yusuf/assign-local-variant",
-    description="Assigning heterogenous values to a local variable."
-)
-def assign_variant() -> str:
+@compile()
+def assign_local_variant() -> str:
+    """
+    Assigning heterogenous values to a local variable.
+    """
     x = 10
     x = "hello world"
     return x

@@ -1,13 +1,13 @@
 #
 #   Muna
-#   Copyright © 2025 NatML Inc. All Rights Reserved.
+#   Copyright © 2026 NatML Inc. All Rights Reserved.
 #
 
 from muna import compile
 
-@compile(
-    tag="@yusuf/list-comprehension",
-    description="Test list comprehension support."
-)
-def predict(count: int) -> list:
+@compile()
+def list_comprehension(count: int) -> list:
+    """
+    Test support for list comprehensions.
+    """
     return [f"The number is {x}" for x in range(count)]
