@@ -1,6 +1,6 @@
 #
 #   Muna
-#   Copyright © 2025 NatML Inc. All Rights Reserved.
+#   Copyright © 2026 NatML Inc. All Rights Reserved.
 #
 
 # /// script
@@ -60,8 +60,6 @@ model_path = Path("test/models/movenet-multipose-192-fp32.onnx")
 model = InferenceSession(model_path.name if not model_path.exists() else model_path)
 
 @compile(
-    tag="@yusuf/movenet-multipose",
-    description="Detect human poses in an image with MoveNet Multipose.",
     sandbox=Sandbox()
         .pip_install("torchvision", index_url="https://download.pytorch.org/whl/cpu")
         .pip_install("onnxruntime")
@@ -73,7 +71,13 @@ model = InferenceSession(model_path.name if not model_path.exists() else model_p
         )
     ]
 )
-def detect_poses(image: Image.Image, min_score: float=0.3) -> list[Pose]:
+def movenet_multipose(
+    image: Image.Image,
+    min_score: float=0.3
+) -> list[Pose]:
+    """
+    Detect poses in an image with MoveNet Multipose.
+    """
     # Preprocess image
     image_rgb = image.convert("RGB")
     image_resized = F.resize(image_rgb, [192, 192])
@@ -113,6 +117,6 @@ if __name__ == "__main__":
     # Predict
     image_path = Path(__file__).parent / "demo" / "metro.jpg"
     image = Image.open(image_path)
-    poses = detect_poses(image)
+    poses = movenet_multipose(image)
     # Print poses
     print_json(data=[pose.model_dump() for pose in poses])

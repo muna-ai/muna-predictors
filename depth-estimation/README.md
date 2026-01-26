@@ -16,20 +16,7 @@ $ uv run depth-estimation/apple_depth_pro.py
 > Python scripts for more information.
 
 ## Compiling the Predictor
-Once you have chosen a depth estimation predictor to use in your application, first update the predictor tag of the 
-prediction function with your Muna username:
-```diff
-# Define predictor
-@compile(
--   tag="@apple/depth-pro",
-+   tag="@<YOUR MUNA USERNAME>/depth-pro",
-    ...
-)
-def estimate_depth(...) -> ndarray:
-    ...
-```
-
-Next, compile the Python code with Muna:
+Cmpile the Python function with the Muna CLI:
 ```bash
 # Run this in Terminal
 $ muna compile --overwrite depth-estimation/apple_depth_pro.py

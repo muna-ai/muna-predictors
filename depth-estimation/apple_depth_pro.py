@@ -1,6 +1,6 @@
 #
 #   Muna
-#   Copyright © 2025 NatML Inc. All Rights Reserved.
+#   Copyright © 2026 NatML Inc. All Rights Reserved.
 #
 
 # /// script
@@ -39,9 +39,6 @@ sess_options.graph_optimization_level = GraphOptimizationLevel.ORT_DISABLE_ALL
 model = InferenceSession(model_path, sess_options=sess_options)
 
 @compile(
-    tag="@apple/depth-pro",
-    description="Estimate metric depth from an image using Apple Depth Pro.",
-    access="public",
     sandbox=Sandbox()
         .pip_install("torch", "torchvision", index_url="https://download.pytorch.org/whl/cpu")
         .pip_install("huggingface_hub", "onnxruntime"),
@@ -49,11 +46,20 @@ model = InferenceSession(model_path, sess_options=sess_options)
         OnnxRuntimeInferenceSessionMetadata(session=model, model_path=model_path)
     ]
 )
-def predict_depth(
-    image: Annotated[Image.Image, Parameter.Generic(description="Input image.")]
+def depth_pro(
+    image: Annotated[
+        Image.Image,
+        Parameter.Generic(description="Input image.")
+    ]
 ) -> tuple[
-    Annotated[ndarray, Parameter.DepthMap(description="Metric depth map with shape (H, W).")],
-    Annotated[float, Parameter.Generic(description="Focal length in pixels.")]
+    Annotated[
+        ndarray,
+        Parameter.DepthMap(description="Metric depth map with shape (H, W).")
+    ],
+    Annotated[
+        float,
+        Parameter.Generic(description="Focal length in pixels.")
+    ]
 ]:
     """
     Estimate metric depth from an image using Apple Depth Pro.
@@ -90,7 +96,7 @@ if __name__ == "__main__":
     # Predict
     image_path = Path(__file__).parent / "demo" / "room.jpg"
     image = Image.open(image_path)
-    depth, focal_length = predict_depth(image)
+    depth, focal_length = depth_pro(image)
     print(f"Focal length: {focal_length:.1f} pixels. Depth range: {depth.min():.2f}m - {depth.max():.2f}m")
     # Visualize
     depth_img = _visualize_depth(depth)

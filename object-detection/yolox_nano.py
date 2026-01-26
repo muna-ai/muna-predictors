@@ -1,6 +1,6 @@
 #
 #   Muna
-#   Copyright © 2025 NatML Inc. All Rights Reserved.
+#   Copyright © 2026 NatML Inc. All Rights Reserved.
 #
 
 # /// script
@@ -48,9 +48,6 @@ labels = FasterRCNN_ResNet50_FPN_Weights.COCO_V1.meta["categories"]
 labels = [label for label in labels if label not in ("__background__", "N/A")]
 
 @compile(
-    tag="@megvii/yolox-nano",
-    description="Detect objects in an image with YOLOX (nano).",
-    access="unlisted",
     sandbox=Sandbox()
         .pip_install("torchvision", index_url="https://download.pytorch.org/whl/cpu")
         .pip_install("loguru", "opencv-python-headless", "psutil", "tabulate"),
@@ -62,8 +59,11 @@ labels = [label for label in labels if label not in ("__background__", "N/A")]
     ]
 )
 @inference_mode()
-def detect_objects(
-    image: Annotated[Image.Image, Parameter.Generic(description="Input image.")],
+def yolox_nano(
+    image: Annotated[
+        Image.Image,
+        Parameter.Generic(description="Input image.")
+    ],
     *,
     min_confidence: Annotated[float, Parameter.Numeric(
         description="Minimum detection confidence.",
@@ -75,7 +75,10 @@ def detect_objects(
         min=0.,
         max=1.
     )]=0.1
-) -> Annotated[list[Detection], Parameter.BoundingBoxes(description="Detected objects.")]:
+) -> Annotated[
+    list[Detection],
+    Parameter.BoundingBoxes(description="Detected objects.")
+]:
     """
     Detect objects in an image with YOLOX (nano).
     """
@@ -199,7 +202,7 @@ if __name__ == "__main__":
     # Detect objects
     image_path = Path(__file__).parent / "demo" / "vehicles.jpg"
     image = Image.open(image_path)
-    detections = detect_objects(image, min_confidence=0.2)
+    detections = yolox_nano(image, min_confidence=0.2)
     # Print detections
     print_json(data=[det.model_dump() for det in detections])
     # Show annotated image

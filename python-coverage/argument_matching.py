@@ -1,25 +1,23 @@
 #
 #   Muna
-#   Copyright © 2025 NatML Inc. All Rights Reserved.
+#   Copyright © 2026 NatML Inc. All Rights Reserved.
 #
 
-# Python supports invoking functions with positional and keyword arguments, and the latter 
-# can be provided out-of-order. Our compiler supports all these forms of arguments.
+# Python supports invoking functions with positional and keyword 
+# arguments, and the latter can be provided out-of-order. 
+# Our compiler supports all these forms of arguments.
 
 from muna import compile, Parameter
 from typing import Annotated
 
-@compile(
-    tag="@anon/argument-matching",
-    description="Test support for matching regular, positional-only, and keyword arguments.",
-)
-def predict(
+@compile()
+def argument_matching(
     a: Annotated[float, Parameter.Numeric(description="First number.")],
     b: Annotated[float, Parameter.Numeric(description="Second number with default.")] = 10.0,
     c: Annotated[float, Parameter.Numeric(description="Third number with default.")] = 42.0
 ) -> Annotated[float, Parameter.Numeric(description="Sum of a, b, and c.")]:
     """
-    Test function calls with various argument passing patterns.
+    Test support for matching regular, positional-only, and keyword arguments.
     """
     # Positional arguments
     sub_all_positional = _sub(12.0, 9.0)
@@ -55,4 +53,4 @@ def _sub(a, b=10.):
     return a - b
 
 if __name__ == "__main__":
-    print(predict(3))
+    print(argument_matching(3))

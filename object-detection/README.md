@@ -12,20 +12,7 @@ $ uv run object-detection/yolo_v8_nano.py
 `uv` will automatically install any required Python packages then run the script.
 
 ## Compiling the Predictor
-Once you have chosen an object detection predictor to use in your application, first update the predictor tag of the 
-detection function with your Muna username:
-```diff
-# Define predictor
-@compile(
--   tag="@ultralytics/yolo-v8-nano",
-+   tag="@<YOUR MUNA USERNAME>/yolo-v8-nano",
-    ...
-)
-def detect_objects(...) -> list[Detection]:
-    ...
-```
-
-Next, compile the Python code with Muna:
+Compile the Python function with the Muna CLI:
 ```bash
 # Run this in Terminal
 $ muna compile --overwrite object-detection/yolo_v8_nano.py

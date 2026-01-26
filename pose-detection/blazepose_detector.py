@@ -1,6 +1,6 @@
 #
 #   Muna
-#   Copyright © 2025 NatML Inc. All Rights Reserved.
+#   Copyright © 2026 NatML Inc. All Rights Reserved.
 #
 
 # /// script
@@ -162,17 +162,14 @@ ANCHORS = _generate_ssd_anchors(**{
 })
 
 @compile(
-    tag="@mediapipe/blazepose-detector-lite",
-    description="Detect pose ROIs in an image with BlazePose Detector (lite).",
     sandbox=Sandbox()
         .pip_install("torch", "torchvision", index_url="https://download.pytorch.org/whl/cpu")
         .pip_install("tensorflow"),
-    access="public",
     metadata=[
         TFLiteInterpreterMetadata(interpreter=interpreter, model_path=model_path),
     ]
 )
-def detect_poses(
+def blazepose_detector_lite(
     image: Annotated[Image.Image, Parameter.Generic(description="Input image.")],
     *,
     min_confidence: Annotated[float, Parameter.Numeric(
@@ -187,7 +184,7 @@ def detect_poses(
     )]=0.1
 ) -> Annotated[list[PoseDetection], Parameter.Generic(description="Detected pose ROIs.")]:
     """
-    Infer pose detections from an image using BlazePose Detector.
+    Detect pose regions of interest in an image with BlazePose Detector (lite).
     """
     # Preprocess image
     image_tensor, scale_factors = _preprocess_image(image, input_size=224)
@@ -338,7 +335,7 @@ if __name__ == "__main__":
     # Detect poses
     image_path = Path(__file__).parent / "demo" / "runner.jpg"
     image = Image.open(image_path)
-    poses = detect_poses(image, min_confidence=0.5, max_iou=0.1)
+    poses = blazepose_detector_lite(image, min_confidence=0.5, max_iou=0.1)
     # Visualize
     print_json(data=TypeAdapter(list[PoseDetection]).dump_python(poses))
     annotated_image = _visualize_pose_detections(image, poses)

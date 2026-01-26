@@ -12,20 +12,7 @@ $ uv run image-classification/resnet_50.py
 `uv` will automatically install any required Python packages then run the script.
 
 ## Compiling the Predictor
-Once you have chosen an image classification predictor to use in your application, first update the predictor tag of the 
-classification function with your Muna username:
-```diff
-# Define predictor
-@compile(
--   tag="@pytorch/resnet-50",
-+   tag="@<YOUR MUNA USERNAME>/resnet-50",
-    ...
-)
-def classify(...) -> tuple[str, float]:
-    ...
-```
-
-Next, compile the Python code with Muna:
+Compile the Python function with Muna:
 ```bash
 # Run this in Terminal
 $ muna compile --overwrite image-classification/resnet_50.py

@@ -1,6 +1,6 @@
 #
 #   Muna
-#   Copyright © 2025 NatML Inc. All Rights Reserved.
+#   Copyright © 2026 NatML Inc. All Rights Reserved.
 #
 
 # /// script
@@ -57,20 +57,17 @@ model = InferenceSession(model_path)
 tokenizer = AutoTokenizer.from_pretrained(model_id)
 
 @compile(
-    tag="@google/embedding-gemma",
-    description="Create embedding vectors from text with EmbeddingGemma.",
-    access="public",
     sandbox=Sandbox().pip_install("huggingface_hub", "onnx", "onnxruntime", "transformers"),
     metadata=[
         OnnxRuntimeInferenceSessionMetadata(session=model, model_path=model_path),
     ]
 )
-def compute_embeddings(
+def embedding_gemma(
     texts: Annotated[list[str], Parameter.Generic(description="Input texts to embed.")],
     task: Annotated[TaskType, Parameter.Generic(description="Embedding task type.")]="document"
 ) -> Annotated[ndarray, Parameter.Embedding(description="Embedding matrix with shape (N,768).")]:
     """
-    Create embedding vectors from text with EmbeddingGemma.
+    Embed text with EmbeddingGemma.
     """
     prompts = [TASK_PREFIX_MAP[task] + item for item in texts]
     inputs = tokenizer(prompts, padding=True, return_tensors="np")
@@ -85,7 +82,7 @@ if __name__ == "__main__":
         "Jupiter, the largest planet in our solar system, has a prominent red spot.",
         "Mars, known for its reddish appearance, is often referred to as the Red Planet.",
     ]
-    query_embedding: ndarray = compute_embeddings([query], task="search result")[0]
-    document_embeddings = compute_embeddings(documents, task="document")
+    query_embedding: ndarray = embedding_gemma([query], task="search result")[0]
+    document_embeddings = embedding_gemma(documents, task="document")
     similarities = query_embedding @ document_embeddings.T
     print(documents[similarities.argmax()])

@@ -1,7 +1,12 @@
 #
 #   Muna
-#   Copyright © 2025 NatML Inc. All Rights Reserved.
+#   Copyright © 2026 NatML Inc. All Rights Reserved.
 #
+
+# /// script
+# requires-python = ">=3.11"
+# dependencies = ["huggingface_hub", "llama-cpp-python", "muna"]
+# ///
 
 from huggingface_hub import hf_hub_download
 from llama_cpp import Llama
@@ -18,11 +23,7 @@ model_path = hf_hub_download(
 model = Llama(model_path=model_path, n_gpu_layers=-1, verbose=False)
 
 @compile(
-    tag="@openai/gpt-oss-20b",
-    description="Create chat conversations with OpenAI gpt-oss-20b.",
-    sandbox=Sandbox()
-        .apt_install("clang")
-        .pip_install("huggingface_hub", "llama-cpp-python"),
+    sandbox=Sandbox().pip_install("huggingface_hub", "llama-cpp-python"),
     metadata=[
         LlamaCppInferenceMetadata(
             model=model,
@@ -30,7 +31,7 @@ model = Llama(model_path=model_path, n_gpu_layers=-1, verbose=False)
         )
     ]
 )
-def predict(
+def gpt_oss_20b(
     messages: Annotated[
         list[Message],
         Parameter.Generic(description="Messages comprising the chat conversation so far.")
@@ -81,7 +82,7 @@ def predict(
         yield chunk
 
 if __name__ == "__main__":
-    stream = predict([
+    stream = gpt_oss_20b([
         Message(role="system", content="You are an AI assistant that provides very brief answers."),
         Message(role="user", content="What is the capital of France.")
     ])

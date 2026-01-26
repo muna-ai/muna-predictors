@@ -1,6 +1,6 @@
 #
 #   Muna
-#   Copyright © 2025 NatML Inc. All Rights Reserved.
+#   Copyright © 2026 NatML Inc. All Rights Reserved.
 #
 
 # /// script
@@ -20,9 +20,6 @@ weights = ResNet50_Weights.DEFAULT
 model = resnet50(weights=weights).eval()
 
 @compile(
-    tag="@pytorch/resnet-50",
-    description="Classify an image with ResNet-50.",
-    access="public",
     sandbox=Sandbox().pip_install("torchvision", index_url="https://download.pytorch.org/whl/cpu"),
     metadata=[
         OnnxRuntimeInferenceMetadata(
@@ -32,7 +29,7 @@ model = resnet50(weights=weights).eval()
     ]
 )
 @inference_mode()
-def classify_image(
+def resnet_50(
     image: Annotated[Image.Image, Parameter.Generic(description="Input image.")]
 ) -> tuple[
     Annotated[str, Parameter.Generic(description="Classification label.")],
@@ -66,6 +63,6 @@ if __name__ == "__main__":
     # Predict
     image_path = Path(__file__).parent / "demo" / "cat.jpg"
     image = Image.open(image_path)
-    label, score = classify_image(image)
+    label, score = resnet_50(image)
     # Print
     print(label, score)

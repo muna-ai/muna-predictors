@@ -1,6 +1,6 @@
 #
 #   Muna
-#   Copyright © 2025 NatML Inc. All Rights Reserved.
+#   Copyright © 2026 NatML Inc. All Rights Reserved.
 #
 
 # /// script
@@ -11,6 +11,7 @@
 from huggingface_hub import hf_hub_download
 from muna import compile, Parameter, Sandbox
 from muna.beta import OnnxRuntimeInferenceSessionMetadata
+from muna.beta.openai import Annotations
 from numpy import array, float32, int64, load, ndarray, ones_like
 from onnxruntime import InferenceSession
 from typing import Annotated, Literal
@@ -65,21 +66,27 @@ def _create_word_index_dictionary():
 IPA_CODE_MAP = _create_word_index_dictionary()
 
 @compile(
-    tag="@kitten-ml/kitten-tts",
-    description="Perform text-to-speech with Kitten TTS.",
-    access="public",
     sandbox=Sandbox().pip_install("huggingface_hub", "onnxruntime"),
     metadata=[
         OnnxRuntimeInferenceSessionMetadata(session=kitten_model, model_path=kitten_model_path),
         OnnxRuntimeInferenceSessionMetadata(session=byt5_model, model_path=byt5_model_path),
     ]
 )
-def generate_speech(
-    text: Annotated[str, Parameter.Generic(description="Text to generate speech from.")],
+def kitten_tts(
+    text: Annotated[
+        str,
+        Parameter.Generic(description="Text to generate speech from.")
+    ],
     *,
-    voice: Annotated[GenerationVoice, Parameter.AudioVoice(description="Generation voice.")],
-    language: Annotated[GenerationLanguage, Parameter.Generic(description="Generation language.")]="en-US",
-    speed: Annotated[float, Parameter.AudioSpeed(
+    voice: Annotated[
+        GenerationVoice,
+        Annotations.AudioVoice(description="Generation voice.")
+    ],
+    language: Annotated[
+        GenerationLanguage,
+        Parameter.Generic(description="Generation language.")
+    ]="en-US",
+    speed: Annotated[float, Annotations.AudioSpeed(
         description="Voice speed multiplier.",
         min=0.25,
         max=2.
@@ -149,11 +156,9 @@ def _convert_to_ipa(
 if __name__ == "__main__":
     import sounddevice as sd
     # Generate audio
-    audio = generate_speech(
+    audio = kitten_tts(
         text="Kitten is such an odd model.",
-        language="en-US",
-        voice="expr-voice-3-m",
-        speed=1.0025,
+        voice="expr-voice-3-m"
     )
     # Playback
     sd.play(audio, samplerate=24_000)

@@ -101,27 +101,22 @@ def kokoro_tts(
     """
     Perform text-to-speech with Kokoro TTS.
     """
-    # Convert text to IPA
+    # Tokenize input text
     ipa_text = _convert_to_ipa(text, language=language)
-    # Convert IPA phonemes to token IDs using Kokoro vocabulary
     all_tokens = [KOKORO_VOCAB[item] for item in ipa_text if item in KOKORO_VOCAB]
     # Truncate to fit context length (512 total, leaving room for 2 padding tokens)
     tokens = all_tokens[:510]
-    # Add the pad ids (0 at start and end)
     tokens_with_padding = [0] + tokens + [0]
-    # Convert to input tensor
-    padded_input_ids = array(tokens_with_padding, dtype=int64)[None]
-    # Get voice style based on padded token length
-    ref_s = voices[voice][len(tokens_with_padding)]
-    # Specify speed
-    speed_spec = array([speed], dtype=float32)
     # Run inference
+    padded_input_ids = array(tokens_with_padding, dtype=int64)[None]
+    ref_s = voices[voice][len(tokens_with_padding)]
+    speed_spec = array([speed], dtype=float32)
     outputs = kokoro.run(None, {
         "input_ids": padded_input_ids,
         "style": ref_s,
         "speed": speed_spec
     })
-    # Return the audio data
+    # Return
     return outputs[0].squeeze()
 
 def _convert_to_ipa(

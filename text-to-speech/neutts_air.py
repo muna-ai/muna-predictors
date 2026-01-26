@@ -1,6 +1,6 @@
 #
 #   Muna
-#   Copyright © 2025 NatML Inc. All Rights Reserved.
+#   Copyright © 2026 NatML Inc. All Rights Reserved.
 #
 
 # /// script
@@ -22,26 +22,26 @@ from huggingface_hub import hf_hub_download
 from llama_cpp import Llama
 from muna import compile, Parameter, Sandbox
 from muna.beta import LlamaCppInferenceMetadata, OnnxRuntimeInferenceSessionMetadata
-from muna.beta.openai.annotations import Annotations
+from muna.beta.openai import Annotations
 from numpy import array, int32, load, ndarray, ones_like, savez
 from numpy.lib.npyio import NpzFile
 from onnxruntime import InferenceSession
 from pathlib import Path
 from re import findall
 from requests import get
-from torch import inference_mode, Tensor
+from torch import Tensor
 from torch.hub import load_state_dict_from_url
 from typing import Annotated, Literal
 
 GenerationVoice = Literal["dave", "jo"]
 
 # Load NeuTTS Air
-neutts_air_path = hf_hub_download(
+model_path = hf_hub_download(
     repo_id="neuphonic/neutts-air-q4-gguf",
     filename="neutts-air-Q4-0.gguf"
 )
-neutts_air = Llama(
-    model_path=neutts_air_path,
+model = Llama(
+    model_path=model_path,
     verbose=False,
     n_gpu_layers=0,  # CPU only (would be -1 for GPU)
     n_ctx=32768,     # Use model's training context size
@@ -78,27 +78,32 @@ voice_prompts = {
 }
 
 @compile(
-    tag="@neuphonic/neutts-air",
-    description="Perform text-to-speech with NeuTTS-Air.",
-    access="unlisted",
     sandbox=Sandbox()
-        .pip_install("torch", "torchaudio", index_url="https://download.pytorch.org/whl/cpu")
+        .pip_install("torch", index_url="https://download.pytorch.org/whl/cpu")
         .pip_install("huggingface_hub", "llama-cpp-python", "onnxruntime", "transformers"),
     metadata=[
         LlamaCppInferenceMetadata(
-            model=neutts_air,
+            model=model,
             #backends=["cuda"]
         ),
         OnnxRuntimeInferenceSessionMetadata(session=decoder, model_path=decoder_path),
         OnnxRuntimeInferenceSessionMetadata(session=phonemizer, model_path=phonemizer_path)
     ]
 )
-@inference_mode()
-def generate_speech(
-    text: Annotated[str, Parameter.Generic(description="Text to generate speech from.")],
+def neutts_air(
+    text: Annotated[
+        str,
+        Parameter.Generic(description="Text to generate speech from.")
+    ],
     *,
-    voice: Annotated[GenerationVoice, Annotations.AudioVoice(description="Generation voice.")],
-    language: Annotated[str, Parameter.Generic(description="Generation language.")]="en-US"
+    voice: Annotated[
+        GenerationVoice,
+        Annotations.AudioVoice(description="Generation voice.")
+    ],
+    language: Annotated[
+        str,
+        Parameter.Generic(description="Generation language.")
+    ]="en-US"
 ) -> Annotated[ndarray, Parameter.Audio(
     description="Linear PCM audio samples with shape (F,) and sample rate 24KHz.",
     sample_rate=24_000
@@ -112,7 +117,7 @@ def generate_speech(
     # Create prompt with IPA phonemes
     prompt = _create_prompt(text, reference_codes, reference_text, language)
     # Run NeuTTS-Air
-    response: dict = neutts_air(
+    response: dict = model(
         prompt,
         max_tokens=2048,
         temperature=1.0,
@@ -251,7 +256,7 @@ def _convert_to_ipa(
 if __name__ == "__main__":
     import sounddevice as sd
     # Generate audio
-    audio = generate_speech(
+    audio = neutts_air(
         "It was the best of times. It was the worst of times.",
         voice="dave"
     )

@@ -1,6 +1,6 @@
 #
 #   Muna
-#   Copyright © 2025 NatML Inc. All Rights Reserved.
+#   Copyright © 2026 NatML Inc. All Rights Reserved.
 #
 
 # /// script
@@ -37,11 +37,10 @@ class Detection(BaseModel):
     confidence: float = Field(description="Detection confidence score.")
 
 @compile(
-    tag="@baidu/rt-detr",
     description="Detect objects in an image with RT-DETR.",
     access="public",
     sandbox=Sandbox()
-        .pip_install("torch", "torchvision", index_url="https://download.pytorch.org/whl/cpu")
+        .pip_install("torchvision", index_url="https://download.pytorch.org/whl/cpu")
         .pip_install("faster_coco_eval", "tensorboard", "scipy"),
     metadata=[
         OnnxRuntimeInferenceMetadata(
@@ -54,15 +53,21 @@ class Detection(BaseModel):
     ]
 )
 @inference_mode()
-def detect_objects(
-    image: Annotated[Image.Image, Parameter.Generic(description="Input image.")],
+def rt_detr(
+    image: Annotated[
+        Image.Image,
+        Parameter.Generic(description="Input image.")
+    ],
     *,
     min_confidence: Annotated[float, Parameter.Numeric(
         description="Minimum detection confidence.",
         min=0.,
         max=1.
     )]=0.5
-) -> Annotated[list[Detection], Parameter.BoundingBoxes(description="Detected objects.")]:
+) -> Annotated[
+    list[Detection],
+    Parameter.BoundingBoxes(description="Detected objects.")
+]:
     """
     Detect objects in an image with RT-DETR.
     """
@@ -130,7 +135,7 @@ if __name__ == "__main__":
     # Detect objects
     image_path = Path(__file__).parent / "demo" / "vehicles.jpg"
     image = Image.open(image_path)
-    detections = detect_objects(image, min_confidence=0.5)
+    detections = rt_detr(image, min_confidence=0.5)
     # Print detections
     print_json(data=[det.model_dump() for det in detections])
     # Render and show the result

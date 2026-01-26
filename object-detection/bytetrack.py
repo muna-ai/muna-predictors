@@ -42,14 +42,12 @@ label_to_id = { "": -1 }
 id_to_label = { -1: "" }
 
 @compile(
-    tag="@yusuf/bytetrack",
-    description="Track multiple objects using the ByteTrack algorithm.",
     sandbox=Sandbox()
         .pip_install("torchvision", index_url="https://download.pytorch.org/whl/cpu")
         .pip_install("lap", "ultralytics==8.3.161")
         .pip_install("opencv-python-headless")
 )
-def track_objects(
+def bytetrack(
     detections: Annotated[
         list[Detection],
         Parameter.BoundingBoxes(description="Detections for the current frame.")
@@ -65,11 +63,6 @@ def track_objects(
 ]:
     """
     Track multiple objects using the ByteTrack algorithm.
-    
-    ByteTrack associates detections across video frames to produce tracked objects 
-    with persistent IDs. It uses a two-stage matching strategy: first matching 
-    high-confidence detections, then matching remaining low-confidence detections 
-    to improve tracking continuity.
     """
     # Reset
     if reset:
@@ -121,15 +114,15 @@ if __name__ == "__main__":
     ]
     # Process each frame
     print("Frame 1:")
-    tracks1 = track_objects(frame1_detections)
+    tracks1 = bytetrack(frame1_detections)
     for t in tracks1:
         print(f"  Track {t.track_id}: {t.label} @ ({t.x_min:.2f}, {t.y_min:.2f}) conf={t.confidence:.2f}")
     print("\nFrame 2:")
-    tracks2 = track_objects(frame2_detections)
+    tracks2 = bytetrack(frame2_detections)
     for t in tracks2:
         print(f"  Track {t.track_id}: {t.label} @ ({t.x_min:.2f}, {t.y_min:.2f}) conf={t.confidence:.2f}")
     print("\nFrame 3:")
-    tracks3 = track_objects(frame3_detections)
+    tracks3 = bytetrack(frame3_detections)
     for t in tracks3:
         print(f"  Track {t.track_id}: {t.label} @ ({t.x_min:.2f}, {t.y_min:.2f}) conf={t.confidence:.2f}")
     # Verify tracking consistency

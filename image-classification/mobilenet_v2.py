@@ -1,6 +1,6 @@
 #
 #   Muna
-#   Copyright © 2025 NatML Inc. All Rights Reserved.
+#   Copyright © 2026 NatML Inc. All Rights Reserved.
 #
 
 # /// script
@@ -20,14 +20,8 @@ weights = MobileNet_V2_Weights.DEFAULT
 model = mobilenet_v2(weights=weights).eval()
 
 @compile(
-    tag="@pytorch/mobilenet-v2",
-    description="Classify an image with MobileNet v2.",
-    access="public",
-    sandbox=Sandbox().pip_install(
-        "torch==2.6.0",
-        "torchvision==0.21",
-        index_url="https://download.pytorch.org/whl/cpu"
-    ),
+    sandbox=Sandbox()
+        .pip_install("torchvision", index_url="https://download.pytorch.org/whl/cpu"),
     metadata=[
         OnnxRuntimeInferenceMetadata(
             model=model,
@@ -36,7 +30,7 @@ model = mobilenet_v2(weights=weights).eval()
     ]
 )
 @inference_mode()
-def classify_image(
+def mobilenet_v2(
     image: Annotated[Image.Image, Parameter.Generic(description="Input image.")]
 ) -> tuple[
     Annotated[str, Parameter.Generic(description="Classification label.")],
@@ -70,6 +64,6 @@ if __name__ == "__main__":
     # Predict
     image_path = Path(__file__).parent / "demo" / "cat.jpg"
     image = Image.open(image_path)
-    label, score = classify_image(image)
+    label, score = mobilenet_v2(image)
     # Print
     print(label, score)

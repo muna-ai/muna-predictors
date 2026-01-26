@@ -1,6 +1,6 @@
 #
 #   Muna
-#   Copyright © 2025 NatML Inc. All Rights Reserved.
+#   Copyright © 2026 NatML Inc. All Rights Reserved.
 #
 
 # /// script
@@ -75,22 +75,19 @@ KEYPOINT_NAMES = [
 ]
 
 @compile(
-    tag="@mediapipe/blazepose-landmarks-lite",
-    description="Infer the full body pose an from RoI with BlazePose Landmarks (lite).",
     sandbox=Sandbox()
         .pip_install("torch", "torchvision", index_url="https://download.pytorch.org/whl/cpu")
         .pip_install("opencv-python-headless", "tensorflow"),
-    access="public",
     metadata=[
         TFLiteInterpreterMetadata(interpreter=interpreter, model_path=model_path),
     ]
 )
-def infer_full_body_pose(
+def blazepose_landmarks_lite(
     image: Annotated[Image.Image, Parameter.Generic(description="Input image.")],
     roi: Annotated[RotatedRect, Parameter.Generic(description="Pose RoI.")]
 ) -> Annotated[FullBodyPose, Parameter.Generic(description="Full body pose.")]:
     """
-    Infer the full body pose an from RoI with BlazePose Landmarks (lite).
+    Detect a body pose an from RoI with BlazePose Landmarks (lite).
     """
     # Create ROI image
     image = image.convert("RGB")
@@ -253,7 +250,7 @@ if __name__ == "__main__":
         height=1.293550729751587,
         rotation=9.145028114318848
     )
-    pose = infer_full_body_pose(image, roi)
+    pose = blazepose_landmarks_lite(image, roi)
     # Visualize
     print_json(data=TypeAdapter(FullBodyPose).dump_python(pose))
     annotated_image = _visualize_full_body_poses(image, [pose])

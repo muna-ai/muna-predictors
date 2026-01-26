@@ -1,6 +1,6 @@
 #
 #   Muna
-#   Copyright © 2025 NatML Inc. All Rights Reserved.
+#   Copyright © 2026 NatML Inc. All Rights Reserved.
 #
 
 # /// script
@@ -37,13 +37,10 @@ class Detection(BaseModel):
     confidence: float = Field(description="Detection confidence score.")
 
 @compile(
-    tag="@roboflow/rf-detr",
-    description="Detect objects in an image with RF-DETR.",
-    access="public",
     sandbox=Sandbox()
         .pip_install("torch", "torchvision", index_url="https://download.pytorch.org/whl/cpu")
         .pip_install("rfdetr")
-        .run_commands("pip uninstall -y opencv-python opencv-python-headless")
+        .run_commands("uv pip uninstall -y opencv-python opencv-python-headless")
         .pip_install("opencv-python-headless"),
     metadata=[
         OnnxRuntimeInferenceMetadata(
@@ -54,7 +51,7 @@ class Detection(BaseModel):
     ]
 )
 @inference_mode()
-def detect_objects(
+def rf_detr(
     image: Annotated[Image.Image, Parameter.Generic(description="Input image.")],
     *,
     min_confidence: Annotated[float, Parameter.Numeric(
@@ -67,7 +64,10 @@ def detect_objects(
         min=0.,
         max=1.
     )]=0.1
-) -> Annotated[list[Detection], Parameter.BoundingBoxes(description="Detected objects.")]:
+) -> Annotated[
+    list[Detection],
+    Parameter.BoundingBoxes(description="Detected objects.")
+]:
     """
     Detect objects in an image with RF-DETR.
     """
@@ -135,7 +135,7 @@ if __name__ == "__main__":
     # Detect objects
     image_path = Path(__file__).parent / "demo" / "vehicles.jpg"
     image = Image.open(image_path)
-    detections = detect_objects(image)
+    detections = rf_detr(image)
     # Visualize
     print_json(data=[det.model_dump() for det in detections])
     _visualize_detections(image, detections).show()

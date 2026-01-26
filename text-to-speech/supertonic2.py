@@ -361,9 +361,11 @@ def _length_to_mask(
 if __name__ == "__main__":
     import sounddevice as sd
     audio = supertonic_2(
-        text="Supertonic 2 is a multilingual text-to-speech model that supports English, Korean, Spanish, Portuguese, and French.",
-        voice="F2",
-        language="en"
+        text=(
+            "Supertonic 2 is a multilingual text-to-speech model that "
+            "supports English, Korean, Spanish, Portuguese, and French."
+        ),
+        voice="F2"
     )
     sd.play(audio, samplerate=sample_rate)
     sd.wait()

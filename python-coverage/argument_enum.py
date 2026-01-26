@@ -1,6 +1,6 @@
 #
 #   Muna
-#   Copyright © 2025 NatML Inc. All Rights Reserved.
+#   Copyright © 2026 NatML Inc. All Rights Reserved.
 #
 
 # Muna has enhanced support for enumeration arguments. During codegen, the compiler 
@@ -17,12 +17,9 @@ class Direction (IntEnum):
     South = 2
     West = 3
 
-@compile(
-    tag="@yusuf/arg-enum",
-    description="Test enumeration argument support."
-)
-def direction_to_heading_angle(direction: Direction) -> float:
+@compile()
+def argument_enum(direction: Direction) -> float:
     """
-    Convert a direction constant to a heading angle in degrees (clockwise).
+    Test enumeration argument support.
     """
     return direction * 90.

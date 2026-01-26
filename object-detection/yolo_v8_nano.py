@@ -1,16 +1,11 @@
 #
 #   Muna
-#   Copyright © 2025 NatML Inc. All Rights Reserved.
+#   Copyright © 2026 NatML Inc. All Rights Reserved.
 #
 
 # /// script
 # requires-python = ">=3.11"
-# dependencies = [
-#     "muna",
-#     "rich",
-#     "torchvision",
-#     "ultralytics"
-# ]
+# dependencies = ["muna", "rich", "torchvision", "ultralytics"]
 # ///
 
 from muna import compile, Parameter, Sandbox
@@ -45,11 +40,8 @@ model(*model_args)
 
 # Define predictor
 @compile(
-    tag="@ultralytics/yolo-v8-nano",
-    description="Detect objects in an image with YOLO-v8 (nano).",
-    access="private", # YOLO-v8 is under AGPL license
     sandbox=Sandbox()
-        .pip_install("torch", "torchvision", index_url="https://download.pytorch.org/whl/cpu")
+        .pip_install("torchvision", index_url="https://download.pytorch.org/whl/cpu")
         .pip_install("ultralytics")
         .pip_install("opencv-python-headless"),
     metadata=[
@@ -57,8 +49,11 @@ model(*model_args)
     ]
 )
 @inference_mode()
-def detect_objects(
-    image: Annotated[Image.Image, Parameter.Generic(description="Input image.")],
+def yolo_v8_nano(
+    image: Annotated[
+        Image.Image,
+        Parameter.Generic(description="Input image.")
+    ],
     *,
     min_confidence: Annotated[float, Parameter.Numeric(
         description="Minimum detection confidence.",
@@ -70,7 +65,10 @@ def detect_objects(
         min=0.,
         max=1.
     )]=0.45
-) -> Annotated[list[Detection], Parameter.BoundingBoxes(description="Detected objects.")]:
+) -> Annotated[
+    list[Detection],
+    Parameter.BoundingBoxes(description="Detected objects.")
+]:
     """
     Detect objects in an image with YOLO-v8 (nano).
     """
@@ -203,7 +201,7 @@ if __name__ == "__main__":
     # Detect objects
     image_path = Path(__file__).parent / "demo" / "vehicles.jpg"
     image = Image.open(image_path)
-    detections = detect_objects(image)
+    detections = yolo_v8_nano(image)
     # Print detections
     print_json(data=[det.model_dump() for det in detections])
     # Show annotated image

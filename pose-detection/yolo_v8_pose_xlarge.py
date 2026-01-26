@@ -1,6 +1,6 @@
 #
 #   Muna
-#   Copyright © 2025 NatML Inc. All Rights Reserved.
+#   Copyright © 2026 NatML Inc. All Rights Reserved.
 #
 
 # /// script
@@ -53,9 +53,6 @@ model_args = [randn(1, 3, INPUT_SIZE, INPUT_SIZE)]
 model(*model_args)
 
 @compile(
-    tag="@ultralytics/yolo-v8-pose-xlarge",
-    description="Perform pose detection in an image with YOLO-v8 (xlarge).",
-    access="private", # YOLO-v8 is under AGPL license
     sandbox=Sandbox()
         .pip_install("torch", "torchvision", index_url="https://download.pytorch.org/whl/cpu")
         .pip_install("ultralytics")
@@ -65,7 +62,7 @@ model(*model_args)
     ]
 )
 @inference_mode()
-def detect_poses(
+def yolo_v8_pose_xlarge(
     image: Annotated[Image.Image, Parameter.Generic(description="Input image.")],
     *,
     min_confidence: Annotated[float, Parameter.Numeric(
@@ -80,7 +77,7 @@ def detect_poses(
     )]=0.25
 ) -> Annotated[list[Pose], Parameter.BoundingBoxes(description="Detected poses.")]:
     """
-    Perform pose detection in an image with YOLO-v8 (xlarge).
+    Detect poses in an image with YOLO-v8 (xlarge).
     """
     image_tensor, box_scale_factors, keypoint_scale_factors = _preprocess_image(image, input_size=640)
     model_outputs: Tensor = model(image_tensor[None])[0]    # (1,4+1+P,8400)
@@ -281,7 +278,7 @@ if __name__ == "__main__":
     # Detect poses
     image_path = Path(__file__).parent / "demo" / "metro.jpg"
     image = Image.open(image_path)
-    poses = detect_poses(image)
+    poses = yolo_v8_pose_xlarge(image)
     # Print detections
     print(f"Detected {len(poses)} poses:")
     print_json(data=[pose.model_dump() for pose in poses])
