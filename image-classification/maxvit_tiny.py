@@ -1,6 +1,6 @@
 #
 #   Muna
-#   Copyright © 2025 NatML Inc. All Rights Reserved.
+#   Copyright © 2026 NatML Inc. All Rights Reserved.
 #
 
 # /// script
@@ -20,10 +20,8 @@ weights = MaxVit_T_Weights.DEFAULT
 model = maxvit_t(weights=weights).eval()
 
 @compile(
-    tag="@pytorch/maxvit-tiny",
-    description="Classify an image with Multi-Axis Vision Transformer (MaxViT-tiny).",
-    access="public",
-    sandbox=Sandbox().pip_install("torchvision", index_url="https://download.pytorch.org/whl/cpu"),
+    sandbox=Sandbox()
+        .pip_install("torchvision", index_url="https://download.pytorch.org/whl/cpu"),
     metadata=[
         OnnxRuntimeInferenceMetadata(
             model=model,
@@ -32,8 +30,11 @@ model = maxvit_t(weights=weights).eval()
     ]
 )
 @inference_mode()
-def classify_image(
-    image: Annotated[Image.Image, Parameter.Generic(description="Input image.")]
+def maxvit_tiny(
+    image: Annotated[
+        Image.Image,
+        Parameter.Generic(description="Input image.")
+    ]
 ) -> tuple[
     Annotated[str, Parameter.Generic(description="Classification label.")],
     Annotated[float, Parameter.Generic(description="Classification score.")]
@@ -66,6 +67,6 @@ if __name__ == "__main__":
     # Predict
     image_path = Path(__file__).parent / "demo" / "cat.jpg"
     image = Image.open(image_path)
-    label, score = classify_image(image)
+    label, score = maxvit_tiny(image)
     # Print
     print(label, score)

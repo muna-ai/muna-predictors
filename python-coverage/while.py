@@ -1,15 +1,15 @@
 #
 #   Muna
-#   Copyright © 2025 NatML Inc. All Rights Reserved.
+#   Copyright © 2026 NatML Inc. All Rights Reserved.
 #
 
 from muna import compile
 
-@compile(
-    tag="@yusuf/while",
-    description="Test while-loop support."
-)
-def decrement(number: float) -> float:
+@compile()
+def while_(number: float) -> float:
+    """
+    Test while-loop support.
+    """
     while number > 2:
         number = number - 1
     return number

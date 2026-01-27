@@ -1,6 +1,6 @@
 #
 #   Muna
-#   Copyright © 2025 NatML Inc. All Rights Reserved.
+#   Copyright © 2026 NatML Inc. All Rights Reserved.
 #
 
 # /// script
@@ -23,8 +23,6 @@ model_path = hf_hub_download(
 model = InferenceSession(model_path)
 
 @compile(
-    tag="@cuhk/modnet",
-    description="Realtime trimap-free portrait matting.",
     sandbox=Sandbox()
         .pip_install("torchvision", index_url="https://download.pytorch.org/whl/cpu")
         .pip_install("onnxruntime", "huggingface_hub"),
@@ -32,7 +30,10 @@ model = InferenceSession(model_path)
         OnnxRuntimeInferenceSessionMetadata(session=model, model_path=model_path)
     ]
 )
-def predict(image: Image.Image) -> Image.Image:
+def modnet(image: Image.Image) -> Image.Image:
+    """
+    Realtime trimap-free portrait matting.
+    """
     # Compute scale factor
     dst_height = 512
     dst_width = int(image.width / image.height * dst_height)
@@ -55,5 +56,5 @@ def predict(image: Image.Image) -> Image.Image:
 
 if __name__ == "__main__":
     image = Image.open("test/media/headshot.jpg")
-    result = predict(image)
+    result = modnet(image)
     result.show()

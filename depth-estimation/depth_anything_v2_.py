@@ -1,6 +1,6 @@
 #
 #   Muna
-#   Copyright © 2025 NatML Inc. All Rights Reserved.
+#   Copyright © 2026 NatML Inc. All Rights Reserved.
 #
 
 # NOTE: In order to run and/or compile this model, you must clone Depth Anything V2 into the current working directory.
@@ -39,9 +39,6 @@ model.eval()
 INPUT_SIZE = 518
 
 @compile(
-    tag="@bytedance/depth-anything-v2-small",
-    description="Estimate metric depth from an image with Depth Anything V2 (small).",
-    access="public",
     sandbox=Sandbox()
         .pip_install("torch", "torchvision", index_url="https://download.pytorch.org/whl/cpu")
         .pip_install("huggingface_hub", "opencv-python-headless")
@@ -54,9 +51,15 @@ INPUT_SIZE = 518
     ]
 )
 @inference_mode()
-def estimate_depth(
-    image: Annotated[Image.Image, Parameter.Generic(description="Input image.")]
-) -> Annotated[ndarray, Parameter.DepthMap(description="Metric depth tensor with shape (H,W).")]:
+def depth_anything_v2_small(
+    image: Annotated[
+        Image.Image,
+        Parameter.Generic(description="Input image.")
+    ]
+) -> Annotated[
+    ndarray,
+    Parameter.DepthMap(description="Metric depth tensor with shape (H,W).")
+]:
     """
     Estimate metric depth from an image with Depth Anything V2 (small).
     """

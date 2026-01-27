@@ -1,6 +1,6 @@
 #
 #   Muna
-#   Copyright © 2025 NatML Inc. All Rights Reserved.
+#   Copyright © 2026 NatML Inc. All Rights Reserved.
 #
 
 # /// script
@@ -20,10 +20,8 @@ weights = SqueezeNet1_1_Weights.DEFAULT
 model = squeezenet1_1(weights=weights).eval()
 
 @compile(
-    tag="@pytorch/squeezenet",
-    description="Classify an image with SqueezeNet 1.1.",
-    access="public",
-    sandbox=Sandbox().pip_install("torchvision", index_url="https://download.pytorch.org/whl/cpu"),
+    sandbox=Sandbox()
+        .pip_install("torchvision", index_url="https://download.pytorch.org/whl/cpu"),
     metadata=[
         OnnxRuntimeInferenceMetadata(
             model=model,
@@ -31,7 +29,7 @@ model = squeezenet1_1(weights=weights).eval()
         )
     ]
 )
-def classify_image(
+def squeezenet(
     image: Annotated[Image.Image, Parameter.Generic(description="Input image.")]
 ) -> tuple[
     Annotated[str, Parameter.Generic(description="Classification label.")],
@@ -64,6 +62,6 @@ if __name__ == "__main__":
     # Predict
     image_path = Path(__file__).parent / "demo" / "cat.jpg"
     image = Image.open(image_path)
-    label, score = classify_image(image)
+    label, score = squeezenet(image)
     # Print
     print(label, score)

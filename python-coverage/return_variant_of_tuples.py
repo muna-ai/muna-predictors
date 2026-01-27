@@ -1,15 +1,15 @@
 #
 #   Muna
-#   Copyright © 2025 NatML Inc. All Rights Reserved.
+#   Copyright © 2026 NatML Inc. All Rights Reserved.
 #
 
 from muna import compile
 
-@compile(
-    tag="@yusuf/return-variant-of-tuples",
-    description="Return a variant of tuples."
-)
-def have_conversation(friendly: bool) -> str: # should be std::variant<bool, std::tuple<std::string, int32_t>> in C++
+@compile()
+def return_variant_of_tuples(friendly: bool) -> str: # should be std::variant<bool, std::tuple<std::string, int32_t>> in C++
+    """
+    Return a variant of tuples.
+    """
     if friendly:
         return "Hello!", 25
     else:

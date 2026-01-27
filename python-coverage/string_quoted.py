@@ -1,13 +1,13 @@
 #
 #   Muna
-#   Copyright © 2025 NatML Inc. All Rights Reserved.
+#   Copyright © 2026 NatML Inc. All Rights Reserved.
 #
 
 from muna import compile
 
-@compile(
-    tag="@yusuf/quoted-string",
-    description="Testing lowering strings with quotes."
-)
+@compile()
 def quoted_string() -> str:
+    """
+    Testing lowering strings with quotes.
+    """
     return 'He said "What?"'

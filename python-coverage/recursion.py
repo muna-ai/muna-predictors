@@ -1,6 +1,6 @@
 #
 #   Muna
-#   Copyright © 2025 NatML Inc. All Rights Reserved.
+#   Copyright © 2026 NatML Inc. All Rights Reserved.
 #
 
 from muna import compile
@@ -9,11 +9,11 @@ from muna import compile
 # Recursive functions **must** have return type annotations, and for now those types must be simple.
 # In the future, we might add proper support for recursion with fixed point iteration or Algorithm W.
 
-@compile(
-    tag="@yusuf/recursion",
-    description="Test recursion support."
-)
+@compile()
 def factorial(n: int) -> int:
+    """
+    Test support for recursion.
+    """
     match n:
         case 0: return 1
         case 1: return 1

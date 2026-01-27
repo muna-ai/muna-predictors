@@ -12,20 +12,7 @@ $ uv run text-embedding/embedding_gemma.py
 `uv` will automatically install any required Python packages then run the script.
 
 ## Compiling the Predictor
-Once you have chosen a text embedding predictor to use in your application, first update the predictor tag of the 
-embedding function with your Muna username:
-```diff
-# Define predictor
-@compile(
--   tag="@google/embedding-gemma",
-+   tag="@<YOUR MUNA USERNAME>/embedding-gemma",
-    ...
-)
-def compute_embeddings(...) -> ndarray:
-    ...
-```
-
-Next, compile the Python code with Muna:
+Compile the Python function with the Muna CLI:
 ```bash
 # Run this in Terminal
 $ muna compile --overwrite text-embedding/embedding_gemma.py

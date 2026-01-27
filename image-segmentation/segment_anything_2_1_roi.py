@@ -1,6 +1,6 @@
 #
 #   Muna
-#   Copyright © 2025 NatML Inc. All Rights Reserved.
+#   Copyright © 2026 NatML Inc. All Rights Reserved.
 #
 
 # /// script
@@ -36,8 +36,6 @@ class ROI(BaseModel):
     y_max: float = Field(description="Normalized maximum Y coordinate.")
 
 @compile(
-    tag="@meta/segment-anything-2.1-roi",
-    description="Segment an image region of interest using Segment Anything Model 2.1.",
     sandbox=Sandbox()
         .pip_install("torchvision", index_url="https://download.pytorch.org/whl/cpu")
         .pip_install("huggingface_hub", "onnxruntime"),
@@ -46,9 +44,15 @@ class ROI(BaseModel):
         OnnxRuntimeInferenceSessionMetadata(session=decoder_session, model_path=decoder_path)
     ]
 )
-def predict(
-    image: Annotated[Image.Image, Parameter.Generic(description="Input image.")],
-    roi: Annotated[ROI, Parameter.BoundingBox(description="Region of interest in normalized coordinates")],
+def segment_anything_2_1_roi(
+    image: Annotated[
+        Image.Image,
+        Parameter.Generic(description="Input image.")
+    ],
+    roi: Annotated[
+        ROI,
+        Parameter.BoundingBox(description="Region of interest in normalized coordinates")
+    ],
     mask_threshold: Annotated[float, Parameter.Numeric(
         description="Mask confidence threshold.",
         min=0.,
@@ -112,7 +116,7 @@ if __name__ == "__main__":
     image_path = Path(__file__).parent / "demo" / "fruits.jpg"
     image = Image.open(image_path)
     roi = ROI(x_min=0.08, y_min=0.51, x_max=0.34, y_max=0.74)
-    mask = predict(image, roi)
+    mask = segment_anything_2_1_roi(image, roi)
     # Show mask
     mask_image = Image.fromarray(mask)
     mask_image.show()

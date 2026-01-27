@@ -1,14 +1,14 @@
 #
 #   Muna
-#   Copyright © 2025 NatML Inc. All Rights Reserved.
+#   Copyright © 2026 NatML Inc. All Rights Reserved.
 #
 
 from muna import compile
 from PIL import Image
 
-@compile(
-    tag="@yusuf/identity-image",
-    description="Test returning an input image parameter as-is."
-)
-def identity(image: Image.Image) -> Image.Image:
+@compile()
+def identity_image(image: Image.Image) -> Image.Image:
+    """
+    Test returning an input image argument as-is.
+    """
     return image

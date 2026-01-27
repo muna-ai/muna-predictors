@@ -12,20 +12,7 @@ $ uv run text-to-speech/kitten_tts.py
 `uv` will automatically install any required Python packages then run the script.
 
 ## Compiling the Predictor
-Once you have chosen a text-to-speech predictor to use in your application, first update the predictor tag of the 
-generation function with your Muna username:
-```diff
-# Define predictor
-@compile(
--   tag="@kitten-ml/kitten-tts",
-+   tag="@<YOUR MUNA USERNAME>/kitten-tts",
-    ...
-)
-def generate_speech(...) -> ndarray:
-    ...
-```
-
-Next, compile the Python code with Muna:
+Compile the Python function with the Muna CLI:
 ```bash
 # Run this in Terminal
 $ muna compile --overwrite text-to-speech/kitten_tts.py

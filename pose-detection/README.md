@@ -12,20 +12,7 @@ $ uv run pose-detection/yolo_v8_pose_xlarge.py
 `uv` will automatically install any required Python packages then run the script.
 
 ## Compiling the Predictor
-Once you have chosen a pose detection predictor to use in your application, first update the predictor tag of the 
-detection function with your Muna username:
-```diff
-# Define predictor
-@compile(
--   tag="@ultralytics/yolo-v8-pose-xlarge",
-+   tag="@<YOUR MUNA USERNAME>/yolo-v8-pose-xlarge",
-    ...
-)
-def detect_poses(...) -> list[Pose]:
-    ...
-```
-
-Next, compile the Python code with Muna:
+Compile the Python function with the Muna CLI:
 ```bash
 # Run this in Terminal
 $ muna compile --overwrite pose-detection/yolo_v8_pose_xlarge.py

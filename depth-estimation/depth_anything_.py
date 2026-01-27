@@ -1,6 +1,6 @@
 #
 #   Muna
-#   Copyright © 2025 NatML Inc. All Rights Reserved.
+#   Copyright © 2026 NatML Inc. All Rights Reserved.
 #
 
 # NOTE: In order to run and/or compile this model, you must clone Depth Anything into the current working directory.
@@ -34,9 +34,6 @@ model = DepthAnything.from_pretrained(
 INPUT_SIZE = 518
 
 @compile(
-    tag="@bytedance/depth-anything-large",
-    description="Estimate metric depth from an image using Depth Anything (large).",
-    access="public",
     sandbox=Sandbox()
         .pip_install("torch", "torchvision", index_url="https://download.pytorch.org/whl/cpu")
         .pip_install("huggingface_hub", "opencv-python-headless")
@@ -49,9 +46,15 @@ INPUT_SIZE = 518
     ]
 )
 @inference_mode()
-def estimate_depth(
-    image: Annotated[Image.Image, Parameter.Generic(description="Input image.")]
-) -> Annotated[ndarray, Parameter.DepthMap(description="Metric depth tensor with shape (H,W).")]:
+def depth_anything_large(
+    image: Annotated[
+        Image.Image,
+        Parameter.Generic(description="Input image.")
+    ]
+) -> Annotated[
+    ndarray,
+    Parameter.DepthMap(description="Metric depth tensor with shape (H,W).")
+]:
     """
     Estimate metric depth from an image using Depth Anything (large).
     """
@@ -100,7 +103,7 @@ if __name__ == "__main__":
     # Predict
     image_path = Path(__file__).parent / "demo" / "city.jpg"
     image = Image.open(image_path)
-    depth = estimate_depth(image)
+    depth = depth_anything_large(image)
     # Visualize
     depth_img = _visualize_depth(depth)
     depth_img.show()

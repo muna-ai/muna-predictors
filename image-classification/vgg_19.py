@@ -1,6 +1,6 @@
 #
 #   Muna
-#   Copyright © 2025 NatML Inc. All Rights Reserved.
+#   Copyright © 2026 NatML Inc. All Rights Reserved.
 #
 
 # /// script
@@ -20,10 +20,8 @@ weights = VGG19_Weights.DEFAULT
 model = vgg19(weights=weights).eval()
 
 @compile(
-    tag="@pytorch/vgg-19",
-    description="Classify an image with VGG-19.",
-    access="public",
-    sandbox=Sandbox().pip_install("torchvision", index_url="https://download.pytorch.org/whl/cpu"),
+    sandbox=Sandbox()
+        .pip_install("torchvision", index_url="https://download.pytorch.org/whl/cpu"),
     metadata=[
         OnnxRuntimeInferenceMetadata(
             model=model,
@@ -32,7 +30,7 @@ model = vgg19(weights=weights).eval()
     ]
 )
 @inference_mode()
-def classify_image(
+def vgg_19(
     image: Annotated[Image.Image, Parameter.Generic(description="Input image.")]
 ) -> tuple[
     Annotated[str, Parameter.Generic(description="Classification label.")],
@@ -66,6 +64,6 @@ if __name__ == "__main__":
     # Predict
     image_path = Path(__file__).parent / "demo" / "cat.jpg"
     image = Image.open(image_path)
-    label, score = classify_image(image)
+    label, score = vgg_19(image)
     # Print
     print(label, score)

@@ -1,6 +1,6 @@
 #
 #   Muna
-#   Copyright © 2025 NatML Inc. All Rights Reserved.
+#   Copyright © 2026 NatML Inc. All Rights Reserved.
 #
 
 # NOTE: In order to run and/or compile this model, you must clone Depth Anything V3 into the current working directory.
@@ -23,7 +23,7 @@
 from contextlib import contextmanager
 from huggingface_hub import hf_hub_download
 from muna import compile, Parameter, Sandbox
-from muna.beta import CoreMLInferenceMetadata, OnnxRuntimeInferenceMetadata
+from muna.beta import OnnxRuntimeInferenceMetadata
 from numpy import ndarray, uint8
 from pathlib import Path
 from PIL import Image
@@ -101,10 +101,6 @@ bilinear_ctx.__enter__()
 example_input = randn(1, 1, 3, INPUT_SIZE, INPUT_SIZE)
 
 @compile(
-    tag="@yusuf/depth-anything-v3-metric-large-coreml",
-    description="Estimate metric depth from a monocular image with Depth Anything V3 (metric large).",
-    access="public",
-    targets=["ios", "macos"],
     sandbox=Sandbox()
         .pip_install("torch", "torchvision", index_url="https://download.pytorch.org/whl/cpu")
         .pip_install("addict", "einops", "huggingface_hub", "omegaconf", "opencv-python-headless",  "safetensors")
@@ -115,18 +111,19 @@ example_input = randn(1, 1, 3, INPUT_SIZE, INPUT_SIZE)
             model_args=[example_input],
             exporter="none",
             optimization="basic"
-        ),
-        CoreMLInferenceMetadata(
-            model=model,
-            model_args=[example_input],
-            exporter="none"
         )
     ]
 )
 @inference_mode()
-def estimate_depth(
-    image: Annotated[Image.Image, Parameter.Generic(description="Input image.")]
-) -> Annotated[ndarray, Parameter.DepthMap(description="Metric depth tensor with shape (H,W).")]:
+def depth_anything_v3_metric_large(
+    image: Annotated[
+        Image.Image,
+        Parameter.Generic(description="Input image.")
+    ]
+) -> Annotated[
+    ndarray,
+    Parameter.DepthMap(description="Metric depth tensor with shape (H,W).")
+]:
     """
     Estimate metric depth from a monocular image with Depth Anything V3 (metric large).
     """    
@@ -175,7 +172,7 @@ if __name__ == "__main__":
     # Predict
     image_path = Path(__file__).parent / "demo" / "room.jpg"
     image = Image.open(image_path)
-    depth = estimate_depth(image)
+    depth = depth_anything_v3_metric_large(image)
     # Visualize result
     depth_image = _visualize_depth(depth)
     depth_image.show()

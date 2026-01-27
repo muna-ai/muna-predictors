@@ -1,6 +1,6 @@
 #
 #   Muna
-#   Copyright © 2025 NatML Inc. All Rights Reserved.
+#   Copyright © 2026 NatML Inc. All Rights Reserved.
 #
 
 from muna import compile
@@ -12,11 +12,11 @@ from muna import compile
 
 # TL;DR: You can't annotate the entrypoint to return a union, but you can return a union 😇
 
-@compile(
-    tag="@yusuf/variant-return",
-    description="Test returning a variant."
-)
-def get_unity(as_num: bool) -> str:
+@compile()
+def return_variant(as_num: bool) -> str:
+    """
+    Test support for returning a variant.
+    """
     if as_num:
         result = 1
     else:

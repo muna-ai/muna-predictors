@@ -1,15 +1,15 @@
 #
 #   Muna
-#   Copyright © 2025 NatML Inc. All Rights Reserved.
+#   Copyright © 2026 NatML Inc. All Rights Reserved.
 #
 
 from muna import compile
 
-@compile(
-    tag="@yusuf/if",
-    description="Test if-statement support."
-)
-def grader(score: float) -> str:
+@compile()
+def if_(score: float) -> str:
+    """
+    Test if-statement support.
+    """
     if score < 0.2:
         grade = "low"
     elif score < 0.8:
