@@ -5,10 +5,11 @@
 
 # /// script
 # requires-python = ">=3.11"
-# dependencies = ["muna", "onnxruntime", "rich", "torchvision"]
+# dependencies = ["huggingface_hub", "muna", "onnxruntime", "rich", "torchvision"]
 # ///
 
-from muna import compile, Sandbox
+from huggingface_hub import hf_hub_download
+from muna import compile, Parameter, Sandbox
 from muna.beta import OnnxRuntimeInferenceSessionMetadata
 from numpy import array, ndarray
 from onnxruntime import InferenceSession
@@ -16,6 +17,7 @@ from pathlib import Path
 from PIL import Image
 from pydantic import BaseModel, Field
 from torchvision.transforms.v2 import functional as F
+from typing import Annotated
 
 KEYPOINTS = [
     "nose", "left_eye", "right_eye", "left_ear", "right_ear",
@@ -56,35 +58,40 @@ class Pose(BaseModel):
     left_ankle: Keypoint = Field(description="Left ankle normalized coordinates and score.")
     right_ankle: Keypoint = Field(description="Right ankle normalized coordinates and score.")
 
-model_path = Path("test/models/movenet-multipose-192-fp32.onnx")
-model = InferenceSession(model_path.name if not model_path.exists() else model_path)
+model_path = hf_hub_download("Xenova/movenet-multipose-lightning", "onnx/model.onnx")
+model = InferenceSession(model_path)
 
 @compile(
     sandbox=Sandbox()
         .pip_install("torchvision", index_url="https://download.pytorch.org/whl/cpu")
-        .pip_install("onnxruntime")
-        .upload_file(model_path),
+        .pip_install("huggingface_hub", "onnxruntime"),
     metadata=[
-        OnnxRuntimeInferenceSessionMetadata(
-            session=model,
-            model_path=model_path.name
-        )
+        OnnxRuntimeInferenceSessionMetadata(session=model, model_path=model_path)
     ]
 )
 def movenet_multipose(
-    image: Image.Image,
-    min_score: float=0.3
-) -> list[Pose]:
+    image: Annotated[
+        Image.Image,
+        Parameter.Generic(description="Input image.")
+    ],
+    min_score: Annotated[float, Parameter.Numeric(
+        description="Minimum detection confidence.",
+        min=0.,
+        max=1.
+    )]=0.3
+) -> Annotated[
+    list[Pose],
+    Parameter.BoundingBoxes(description="Detected poses.")
+]:
     """
     Detect poses in an image with MoveNet Multipose.
     """
     # Preprocess image
-    image_rgb = image.convert("RGB")
-    image_resized = F.resize(image_rgb, [192, 192])
-    image_tensor = array(image_resized).astype("float32")
-    image_tensor_batch = image_tensor[None]
+    image = F.resize(image, [192, 192])
+    image = image.convert("RGB")
+    image_tensor = array(image).astype("float32")
     # Run model
-    logits = model.run(None, { "input": image_tensor_batch })[0] # (1,6,56)
+    logits = model.run(None, { "input": image_tensor[None] })[0] # (1,6,56)
     # Parse poses
     valid_pose_mask = logits[0,:,55] >= min_score
     valid_pose_data = logits[0,valid_pose_mask] # (N,56)

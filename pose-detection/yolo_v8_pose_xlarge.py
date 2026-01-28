@@ -63,7 +63,10 @@ model(*model_args)
 )
 @inference_mode()
 def yolo_v8_pose_xlarge(
-    image: Annotated[Image.Image, Parameter.Generic(description="Input image.")],
+    image: Annotated[
+        Image.Image,
+        Parameter.Generic(description="Input image.")
+    ],
     *,
     min_confidence: Annotated[float, Parameter.Numeric(
         description="Minimum detection confidence.",
@@ -75,7 +78,10 @@ def yolo_v8_pose_xlarge(
         min=0.,
         max=1.
     )]=0.25
-) -> Annotated[list[Pose], Parameter.BoundingBoxes(description="Detected poses.")]:
+) -> Annotated[
+    list[Pose],
+    Parameter.BoundingBoxes(description="Detected poses.")
+]:
     """
     Detect poses in an image with YOLO-v8 (xlarge).
     """
