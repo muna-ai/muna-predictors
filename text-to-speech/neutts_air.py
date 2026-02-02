@@ -21,8 +21,10 @@
 from huggingface_hub import hf_hub_download
 from llama_cpp import Llama
 from muna import compile, Parameter, Sandbox
-from muna.beta import LlamaCppInferenceMetadata, OnnxRuntimeInferenceSessionMetadata
-from muna.beta.openai import Annotations
+from muna.beta import (
+    Annotations, LlamaCppInferenceMetadata,
+    OnnxRuntimeInferenceSessionMetadata
+)
 from numpy import array, int32, load, ndarray, ones_like, savez
 from numpy.lib.npyio import NpzFile
 from onnxruntime import InferenceSession

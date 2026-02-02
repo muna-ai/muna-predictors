@@ -10,8 +10,7 @@
 
 from huggingface_hub import hf_hub_download
 from muna import compile, Parameter, Sandbox
-from muna.beta import OnnxRuntimeInferenceSessionMetadata
-from muna.beta.openai import Annotations
+from muna.beta import Annotations, OnnxRuntimeInferenceSessionMetadata
 from numpy import array, float32, int64, load, ndarray, ones_like
 from onnxruntime import InferenceSession
 from typing import Annotated, Literal

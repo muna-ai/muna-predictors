@@ -11,8 +11,8 @@
 from huggingface_hub import hf_hub_download
 from llama_cpp import Llama
 from muna import compile, Parameter, Sandbox
-from muna.beta import LlamaCppInferenceMetadata
-from muna.beta.openai import Annotations, ChatCompletionChunk, Message
+from muna.beta import Annotations, LlamaCppInferenceMetadata
+from muna.beta.openai import ChatCompletionChunk, Message
 from typing import Annotated, Iterator
 
 model_path = hf_hub_download(

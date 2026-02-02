@@ -11,8 +11,7 @@
 from huggingface_hub import hf_hub_download
 from json import loads
 from muna import compile, Parameter, Sandbox
-from muna.beta import OnnxRuntimeInferenceSessionMetadata
-from muna.beta.openai import Annotations
+from muna.beta import Annotations, OnnxRuntimeInferenceSessionMetadata
 from numpy import array, float32, fromfile, int64, load, ndarray, ones_like, savez
 from onnxruntime import InferenceSession
 from pathlib import Path
