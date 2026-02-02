@@ -25,26 +25,45 @@ GenerationLanguage = Literal[
 
 # Generation voices
 GenerationVoice = Literal[
-    "af", "af_bella", "af_nicole", "af_sarah", "af_sky",
-    "am_adam", "am_michael",
-    "bf_emma", "bf_isabella",
-    "bm_george", "bm_lewis"
+    # American English
+    "af", "af_alloy", "af_aoede", "af_bella", "af_heart", "af_jessica",
+    "af_kore", "af_nicole", "af_nova", "af_river", "af_sarah", "af_sky",
+    "am_adam", "am_echo", "am_eric", "am_fenrir", "am_liam", "am_michael",
+    "am_onyx", "am_puck", "am_santa",
+    # British English
+    "bf_alice", "bf_emma", "bf_isabella", "bf_lily",
+    "bm_daniel", "bm_fable", "bm_george", "bm_lewis",
+    # Spanish
+    "ef_dora", "em_alex", "em_santa",
+    # French
+    "ff_siwis",
+    # Hindi
+    "hf_alpha", "hf_beta", "hm_omega", "hm_psi",
+    # Italian
+    "if_sara", "im_nicola",
+    # Japanese
+    "jf_alpha", "jf_gongitsune", "jf_nezumi", "jf_tebukuro", "jm_kumo",
+    # Portuguese
+    "pf_dora", "pm_alex", "pm_santa",
+    # Chinese
+    "zf_xiaobei", "zf_xiaoni", "zf_xiaoxiao", "zf_xiaoyi",
+    "zm_yunjian", "zm_yunxi", "zm_yunxia", "zm_yunyang",
 ]
 
 # Download the Kokoro model
 kokoro_model_path = hf_hub_download(
-    repo_id="onnx-community/Kokoro-82M-ONNX",
-    filename="onnx/model_fp16.onnx"
+    repo_id="onnx-community/Kokoro-82M-v1.0-ONNX",
+    filename="onnx/model.onnx"
 )
 kokoro = InferenceSession(kokoro_model_path)
 sample_rate = 24_000
 
-# Download the vocabulary
-kokoro_tokenizer_path = hf_hub_download(
-    repo_id="onnx-community/Kokoro-82M-ONNX",
+# Download the tokenizer vocabulary
+tokenizer_path = hf_hub_download(
+    repo_id="onnx-community/Kokoro-82M-v1.0-ONNX",
     filename="tokenizer.json"
 )
-KOKORO_VOCAB = loads(Path(kokoro_tokenizer_path).read_text())["model"]["vocab"]
+tokenizer = loads(Path(tokenizer_path).read_text())["model"]["vocab"]
 
 # Download ByT5-based grapheme to phoneme converter
 phonemizer_path = hf_hub_download(
@@ -56,7 +75,7 @@ phonemizer = InferenceSession(phonemizer_path)
 # Download and create an NPZ file of all Kokoro voices
 def _load_kokoro_voice(voice_name: str) -> ndarray:
     voice_path = hf_hub_download(
-        repo_id="onnx-community/Kokoro-82M-ONNX",
+        repo_id="onnx-community/Kokoro-82M-v1.0-ONNX",
         filename=f"voices/{voice_name}.bin"
     )
     return fromfile(voice_path, dtype=float32).reshape(-1, 1, 256)
@@ -68,6 +87,7 @@ if not kokoro_voices_path.exists():
 voices = load(kokoro_voices_path)
 
 @compile(
+    tag="@hexgrad/kokoro-tts",
     sandbox=Sandbox().pip_install("huggingface_hub", "numpy", "onnxruntime"),
     metadata=[
         OnnxRuntimeInferenceSessionMetadata(session=kokoro, model_path=kokoro_model_path),
@@ -102,7 +122,7 @@ def kokoro_tts(
     """
     # Tokenize input text
     ipa_text = _convert_to_ipa(text, language=language)
-    all_tokens = [KOKORO_VOCAB[item] for item in ipa_text if item in KOKORO_VOCAB]
+    all_tokens = [tokenizer[c] for c in ipa_text if c in tokenizer]
     # Truncate to fit context length (512 total, leaving room for 2 padding tokens)
     tokens = all_tokens[:510]
     tokens_with_padding = [0] + tokens + [0]
@@ -157,8 +177,8 @@ if __name__ == "__main__":
     import sounddevice as sd
     # Generate audio
     audio = kokoro_tts(
-        text="It was the best of times.",
-        voice="bm_lewis",
+        text="What a time to be alive",
+        voice="af_jessica",
         language="en-US",
         speed=1.0
     )
