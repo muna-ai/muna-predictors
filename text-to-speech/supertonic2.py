@@ -1,126 +1,123 @@
 #
 #   Muna
-#   Copyright © 2026 NatML Inc. All Rights Reserved.
+#   Copyright 2026 NatML Inc. All Rights Reserved.
 #
 
 # /// script
-# requires-python = ">=3.12"
-# dependencies = ["huggingface_hub", "muna", "onnxruntime", "sounddevice", "torch"]
+# requires-python = ">=3.11"
+# dependencies = ["huggingface_hub", "muna", "numpy", "onnxruntime", "sounddevice"]
 # ///
 
 from huggingface_hub import hf_hub_download
-from json import loads as load_json
+from json import load as json_load
 from muna import compile, Parameter, Sandbox
-from muna.beta import Annotations, OnnxRuntimeInferenceSessionMetadata
-from numpy import (
-    arange, array, asarray, expand_dims, float32,
-    int32, int64, load as load_npz, max, ndarray,
-    savez, uint16, zeros
-)
+from muna.beta import OnnxRuntimeInferenceSessionMetadata
+from muna.beta.annotations import Annotations
+from numpy import array, float32, int64, max as np_max, ndarray, savez
 from numpy.random import randn
+from numpy.lib.npyio import NpzFile
+from numpy import load as np_load
 from onnxruntime import InferenceSession
 from pathlib import Path
-from re import compile as re_compile, split, sub, UNICODE
-from torch import cat, from_numpy
-from torch.nn.functional import pad
-from typing import Annotated, Literal
-from unicodedata import normalize
+from typing import get_args, Annotated, Literal
 
-# Generation voices
-GenerationVoice = Literal[
-    "M1", "M2", "M3", "M4", "M5",
-    "F1", "F2", "F3", "F4", "F5"
-]
-
-# Generation languages (v2 supports 5 languages)
+# Language codes supported by SuperTonic 2
 GenerationLanguage = Literal["en", "ko", "es", "pt", "fr"]
 
-# Download models from supertonic-2 repo
-REPO_ID = "Supertone/supertonic-2"
-duration_predictor_path = hf_hub_download(REPO_ID, "onnx/duration_predictor.onnx")
-text_encoder_path = hf_hub_download(REPO_ID, "onnx/text_encoder.onnx")
-vector_estimator_path = hf_hub_download(REPO_ID, "onnx/vector_estimator.onnx")
-vocoder_path = hf_hub_download(REPO_ID, "onnx/vocoder.onnx")
-config_path = hf_hub_download(REPO_ID, "onnx/tts.json")
-unicode_indexer_path = hf_hub_download(REPO_ID, "onnx/unicode_indexer.json")
+# Voice styles available (5 female, 5 male)
+GenerationVoice = Literal[
+    "F1", "F2", "F3", "F4", "F5",
+    "M1", "M2", "M3", "M4", "M5"
+]
 
-# Download voices
-VOICE_STYLE_FILES: dict[GenerationVoice, str] = {
-    "M1": "voice_styles/M1.json",
-    "M2": "voice_styles/M2.json",
-    "M3": "voice_styles/M3.json",
-    "M4": "voice_styles/M4.json",
-    "M5": "voice_styles/M5.json",
-    "F1": "voice_styles/F1.json",
-    "F2": "voice_styles/F2.json",
-    "F3": "voice_styles/F3.json",
-    "F4": "voice_styles/F4.json",
-    "F5": "voice_styles/F5.json",
-}
-voices_path = Path("voices_v2.npz")
-if not voices_path.exists():
-    voices = dict[str, ndarray]()
-    for voice, remote_path in VOICE_STYLE_FILES.items():
-        local_path = hf_hub_download(REPO_ID, remote_path)
-        voice_data = load_json(Path(local_path).read_text())
-        voices[f"{voice}_style_ttl"] = asarray(voice_data["style_ttl"]["data"], dtype=float32)
-        voices[f"{voice}_style_dp"] = asarray(voice_data["style_dp"]["data"], dtype=float32)
-    savez(voices_path, **voices)
+# Download model files from HuggingFace
+dp_model_path = hf_hub_download(
+    repo_id="Supertone/supertonic-2",
+    filename="onnx/duration_predictor.onnx"
+)
+text_enc_model_path = hf_hub_download(
+    repo_id="Supertone/supertonic-2",
+    filename="onnx/text_encoder.onnx"
+)
+vector_est_model_path = hf_hub_download(
+    repo_id="Supertone/supertonic-2",
+    filename="onnx/vector_estimator.onnx"
+)
+vocoder_model_path = hf_hub_download(
+    repo_id="Supertone/supertonic-2",
+    filename="onnx/vocoder.onnx"
+)
 
-# Load models and voices
-duration_predictor = InferenceSession(duration_predictor_path)
-text_encoder = InferenceSession(text_encoder_path)
-vector_estimator = InferenceSession(vector_estimator_path)
-vocoder = InferenceSession(vocoder_path)
-voices = load_npz(voices_path)
-unicode_indexer = load_json(Path(unicode_indexer_path).read_text())
+# Download configuration files
+config_path = hf_hub_download(
+    repo_id="Supertone/supertonic-2",
+    filename="onnx/tts.json"
+)
+unicode_indexer_path = hf_hub_download(
+    repo_id="Supertone/supertonic-2",
+    filename="onnx/unicode_indexer.json"
+)
+
+# Load ONNX models
+dp_session = InferenceSession(dp_model_path)
+text_enc_session = InferenceSession(text_enc_model_path)
+vector_est_session = InferenceSession(vector_est_model_path)
+vocoder_session = InferenceSession(vocoder_model_path)
 
 # Load configuration
-config = load_json(Path(config_path).read_text())
-sample_rate: int = config["ae"]["sample_rate"]
-base_chunk_size = config["ae"]["base_chunk_size"]
-chunk_compress_factor = config["ttl"]["chunk_compress_factor"]
-latent_dim = config["ttl"]["latent_dim"]
+with open(config_path, "r") as f:
+    config = json_load(f)
 
-# Text pre-processing
-EMOJI_PATTERN = re_compile(
-    "[\U0001f600-\U0001f64f"  # emoticons
-    "\U0001f300-\U0001f5ff"  # symbols & pictographs
-    "\U0001f680-\U0001f6ff"  # transport & map symbols
-    "\U0001f700-\U0001f77f"
-    "\U0001f780-\U0001f7ff"
-    "\U0001f800-\U0001f8ff"
-    "\U0001f900-\U0001f9ff"
-    "\U0001fa00-\U0001fa6f"
-    "\U0001fa70-\U0001faff"
-    "\u2600-\u26ff"
-    "\u2700-\u27bf"
-    "\U0001f1e6-\U0001f1ff]+",
-    flags=UNICODE
-)
-CHAR_REPLACEMENTS: dict[str, str] = {
-    "–": "-", "‑": "-", "—": "-", "_": " ",
-    """: '"', """: '"', "'": "'", "'": "'", "´": "'",
-    "`": "'", "[": " ", "]": " ", "|": " ", "/": " ",
-    "#": " ",  "→": " ", "←": " ",
-}
-EXPR_REPLACEMENTS: dict[str, str] = {
-    "@": " at ",
-    "e.g.,": "for example, ",
-    "i.e.,": "that is, ",
-}
-SPECIAL_SYMBOLS_RE = re_compile(r"[♥☆♡©\\]")
-END_PUNCT_RE = re_compile(r"[.!?;:,'\"')\]}…。」』】〉》›»]$")
+SAMPLE_RATE = config["ae"]["sample_rate"]
+BASE_CHUNK_SIZE = config["ae"]["base_chunk_size"]
+CHUNK_COMPRESS_FACTOR = config["ttl"]["chunk_compress_factor"]
+LATENT_DIM = config["ttl"]["latent_dim"]
+
+# Pre-generate noise tensor at module load time to avoid capturing random state during tracing
+# Max duration ~30 seconds gives max_latent_len ~431 with chunk_size=3072
+MAX_LATENT_LEN = 500  # Buffer for longer outputs
+PREGENERATED_NOISE: ndarray = randn(1, LATENT_DIM * CHUNK_COMPRESS_FACTOR, MAX_LATENT_LEN).astype(float32)
+
+# Load unicode indexer
+with open(unicode_indexer_path, "r") as f:
+    UNICODE_INDEXER = json_load(f)
+
+# Download and create NPZ file for all voice styles
+def _download_voice_style(voice_name: str) -> tuple[ndarray, ndarray]:
+    voice_path = hf_hub_download(
+        repo_id="Supertone/supertonic-2",
+        filename=f"voice_styles/{voice_name}.json"
+    )
+    with open(voice_path, "r") as f:
+        style_data = json_load(f)
+    style_ttl = array(style_data["style_ttl"]["data"], dtype=float32).reshape(*style_data["style_ttl"]["dims"])
+    style_dp = array(style_data["style_dp"]["data"], dtype=float32).reshape(*style_data["style_dp"]["dims"])
+    return style_ttl, style_dp
+
+voices_path = Path("supertonic2_voices.npz")
+if not voices_path.exists():
+    all_styles = {}
+    for voice_name in get_args(GenerationVoice):
+        ttl, dp = _download_voice_style(voice_name)
+        all_styles[f"{voice_name}_ttl"] = ttl
+        all_styles[f"{voice_name}_dp"] = dp
+    savez(voices_path, **all_styles)
+voices: NpzFile = np_load(voices_path)
+
+# Symbol replacements for text preprocessing (list of pairs for iteration)
+SYMBOL_REPLACEMENTS: list[tuple[str, str]] = [
+    ("\u2013", "-"), ("\u2011", "-"), ("\u2014", "-"), ("\u00af", " "), ("_", " "),
+    ("\u201c", '"'), ("\u201d", '"'), ("\u2018", "'"), ("\u2019", "'"), ("\u00b4", "'"),
+    ("`", "'"), ("[", " "), ("]", " "), ("|", " "), ("/", " "), ("#", " "), ("→", " "), ("←", " "),
+]
 
 @compile(
-    sandbox=Sandbox()
-        .pip_install("torch", index_url="https://download.pytorch.org/whl/cpu")
-        .pip_install("huggingface_hub", "onnxruntime"),
+    sandbox=Sandbox().pip_install("huggingface_hub", "numpy", "onnxruntime"),
     metadata=[
-        OnnxRuntimeInferenceSessionMetadata(session=duration_predictor, model_path=duration_predictor_path),
-        OnnxRuntimeInferenceSessionMetadata(session=text_encoder, model_path=text_encoder_path),
-        OnnxRuntimeInferenceSessionMetadata(session=vector_estimator, model_path=vector_estimator_path),
-        OnnxRuntimeInferenceSessionMetadata(session=vocoder, model_path=vocoder_path),
+        OnnxRuntimeInferenceSessionMetadata(session=dp_session, model_path=dp_model_path),
+        OnnxRuntimeInferenceSessionMetadata(session=text_enc_session, model_path=text_enc_model_path),
+        OnnxRuntimeInferenceSessionMetadata(session=vector_est_session, model_path=vector_est_model_path),
+        OnnxRuntimeInferenceSessionMetadata(session=vocoder_session, model_path=vocoder_model_path),
     ]
 )
 def supertonic_2(
@@ -131,240 +128,146 @@ def supertonic_2(
     *,
     voice: Annotated[
         GenerationVoice,
-        Annotations.AudioVoice(description="Generation voice.")
+        Annotations.AudioVoice(description="Generation voice (F1-F5 for female, M1-M5 for male).")
     ],
     language: Annotated[
         GenerationLanguage,
-        Parameter.Generic(description="Generation language.")
+        Parameter.Generic(description="Generation language code.")
     ]="en",
     speed: Annotated[float, Annotations.AudioSpeed(
-        description="Voice speed multiplier.",
-        min=0.25,
-        max=2.0,
-    )]=1.0,
-    silence_duration: Annotated[float, Parameter.Numeric(
-        description="Silence duration between chunks, in seconds.",
-        min=0.0,
-        max=1.0
-    )]=0.3,
-    diffusion_steps: Annotated[int, Parameter.Numeric(
-        description="Number of diffusion steps.",
+        description="Speech speed multiplier.",
+        min=0.7,
+        max=2.0
+    )]=1.05,
+    total_steps: Annotated[int, Parameter.Numeric(
+        description="Number of diffusion steps (higher = better quality, slower).",
         min=1,
-        max=10
-    )]=5,
+        max=20
+    )]=5
 ) -> Annotated[ndarray, Parameter.Audio(
-    description="Linear PCM audio samples with shape (F,) and sample rate 44.1KHz.",
-    sample_rate=sample_rate,
+    description="Linear PCM audio samples with shape (F,) and sample rate 22050Hz.",
+    sample_rate=SAMPLE_RATE
 )]:
     """
-    Perform text-to-speech with Supertonic 2.
+    Generate speech from text with SuperTonic 2.
     """
-    # Perform TTS
-    max_len = 120 if language == "ko" else 300
-    text_chunks = _chunk_text(text, max_len=max_len)
-    chunk_count = len(text_chunks)
-    style_ttl = voices[f"{voice}_style_ttl"].repeat(chunk_count, axis=0)
-    style_dp = voices[f"{voice}_style_dp"].repeat(chunk_count, axis=0)
-    wav_chunks, durations = _infer( # (N,F), (N,)
-        text_chunks,
-        language=language,
-        style_dp=style_dp,
-        style_ttl=style_ttl,
-        diffusion_steps=diffusion_steps,
-        speed=speed
-    )
-    wav_chunks = from_numpy(wav_chunks)
-    durations = from_numpy(durations)
-    # Concatenate wav chunks with silence
-    silence_samples = int(silence_duration * sample_rate)
-    sample_counts = (durations * sample_rate).int()
-    trimmed_chunks = [wav_chunks[i][:sample_counts[i].item()] for i in range(len(wav_chunks))]
-    wav = cat([pad(trimmed_chunks[i], (0, silence_samples)) for i in range(len(trimmed_chunks) - 1)] + [trimmed_chunks[-1]])
-    # Trim audio to duration
-    total_samples = sample_counts.sum().item() + silence_samples * (len(trimmed_chunks) - 1)
-    wav = wav[:total_samples]
-    # Return
-    return wav.numpy()
-
-def _infer(
-    text_list: list[str],
-    *,
-    language: str,
-    style_dp: ndarray,
-    style_ttl: ndarray,
-    diffusion_steps: int=5,
-    speed: float = 1.05
-) -> tuple[ndarray, ndarray]:
-    batch_size = len(text_list)
-    text_ids, text_mask = _unicode_process(text_list, language)
-    dur_onnx = duration_predictor.run(None, {
+    # Get voice style vectors
+    style_ttl = voices[f"{voice}_ttl"]
+    style_dp = voices[f"{voice}_dp"]
+    # Preprocess and encode text
+    processed_text = _preprocess_text(text, language)
+    text_ids, text_mask = _encode_text([processed_text])
+    # Predict duration
+    dur_outputs = dp_session.run(None, {
         "text_ids": text_ids,
         "style_dp": style_dp,
         "text_mask": text_mask
-    })[0]
-    dur_onnx = dur_onnx / speed
-    text_emb_onnx = text_encoder.run(None, {
+    })
+    duration = dur_outputs[0] / speed
+    # Encode text with style
+    text_emb_outputs = text_enc_session.run(None, {
         "text_ids": text_ids,
         "style_ttl": style_ttl,
         "text_mask": text_mask
-    })[0]  # dur_onnx: [batch_size]
-    xt, latent_mask = _sample_noisy_latent(dur_onnx)
-    total_step_np = array([diffusion_steps] * batch_size, dtype=float32)
-    for step in range(diffusion_steps):
-        current_step = array([step] * batch_size, dtype=float32)
-        xt = vector_estimator.run(None, {
+    })
+    text_emb = text_emb_outputs[0]
+    # Sample noisy latent
+    xt, latent_mask = _sample_noisy_latent(duration)
+    # Iterative denoising (batch size is always 1)
+    total_step_np = array([total_steps], dtype=float32)
+    for step in range(total_steps):
+        current_step = array([step], dtype=float32)
+        xt_outputs = vector_est_session.run(None, {
             "noisy_latent": xt,
-            "text_emb": text_emb_onnx,
+            "text_emb": text_emb,
             "style_ttl": style_ttl,
             "text_mask": text_mask,
             "latent_mask": latent_mask,
             "current_step": current_step,
-            "total_step": total_step_np,
-        })[0]
-    wav = vocoder.run(None, { "latent": xt })[0]
-    return wav, dur_onnx
+            "total_step": total_step_np
+        })
+        xt = xt_outputs[0]
+    # Generate waveform
+    wav_outputs = vocoder_session.run(None, {"latent": xt})
+    wav = wav_outputs[0]
+    # Return squeezed audio
+    return wav.squeeze()
 
-def _unicode_process(text_list: list[str], language: str) -> tuple[ndarray, ndarray]:
+def _preprocess_text(text: str, lang: str) -> str:
     """
-    Process unicode text into text IDs and mask.
+    Preprocess text with normalization and language tags.
     """
-    processed = [_preprocess_text(t, language) for t in text_list]
-    text_ids_lengths = array([len(t) for t in processed], dtype=int64)
-    max_len = int(text_ids_lengths.max()) if len(text_ids_lengths) else 0
-    text_ids = zeros((len(processed), max_len), dtype=int64)
-    for i in range(len(processed)):
-        text = processed[i]
-        # Convert text into uint16 unicode codepoints (2 bytes).
-        # NOTE: ord(...) can exceed 65535 for some characters; we truncate to uint16.
-        unicode_vals = array([ord(char) for char in text], dtype=uint16)
-        indexed = array([unicode_indexer[int(v)] for v in unicode_vals], dtype=int64)
-        text_ids[i, : len(unicode_vals)] = indexed
-    text_mask = (
-        _length_to_mask(text_ids_lengths)
-        if len(processed)
-        else zeros((0, 1, 0), dtype=float32)
-    )
-    return text_ids, text_mask
-
-def _chunk_text(
-    text: str,
-    *,
-    max_len: int=300
-) -> list[str]:
-    """
-    Split text into chunks by paragraphs and sentences.
-    """
-    # Split by paragraph (two or more newlines)
-    paragraphs = [p.strip() for p in split(r"\n\s*\n+", text.strip()) if p.strip()]
-    chunks = []
-    for paragraph in paragraphs:
-        # Split by sentence boundaries (period, question mark, exclamation mark followed by space)
-        # But exclude common abbreviations like Mr., Mrs., Dr., etc. and single capital letters like F.
-        pattern = r"(?<!Mr\.)(?<!Mrs\.)(?<!Ms\.)(?<!Dr\.)(?<!Prof\.)(?<!Sr\.)(?<!Jr\.)(?<!Ph\.D\.)(?<!etc\.)(?<!e\.g\.)(?<!i\.e\.)(?<!vs\.)(?<!Inc\.)(?<!Ltd\.)(?<!Co\.)(?<!Corp\.)(?<!St\.)(?<!Ave\.)(?<!Blvd\.)(?<!\b[A-Z]\.)(?<=[.!?])\s+"
-        sentences = split(pattern, paragraph)
-        current_chunk = ""
-        for sentence in sentences:
-            if len(current_chunk) + len(sentence) + 1 <= max_len:
-                current_chunk += (" " if current_chunk else "") + sentence
-            else:
-                if current_chunk:
-                    chunks.append(current_chunk.strip())
-                current_chunk = sentence
-        if current_chunk:
-            chunks.append(current_chunk.strip())
-    return chunks
-
-def _preprocess_text(text: str, language: str) -> str:
-    """
-    Normalize and sanitize text before unicode indexing.
-    V2 wraps text with language tags.
-    """
-    # Normalize unicode
-    text = normalize("NFKD", text)
-    # Remove emojis
-    text = EMOJI_PATTERN.sub("", text)
-    # Character replacements
-    for k in CHAR_REPLACEMENTS:
-        text = text.replace(k, CHAR_REPLACEMENTS[k])
-    # Remove special symbols
-    text = SPECIAL_SYMBOLS_RE.sub("", text)
-    # Replace known expressions
-    for k in EXPR_REPLACEMENTS:
-        text = text.replace(k, EXPR_REPLACEMENTS[k])
-    # Fix spacing around punctuation
-    text = sub(r" ,", ",", text)
-    text = sub(r" \.", ".", text)
-    text = sub(r" !", "!", text)
-    text = sub(r" \?", "?", text)
-    text = sub(r" ;", ";", text)
-    text = sub(r" :", ":", text)
-    text = sub(r" '", "'", text)
-    # Remove duplicate quotes (2+ consecutive → 1)
-    text = sub(r'"{2,}', '"', text)
-    text = sub(r"'{2,}", "'", text)
-    text = sub(r"`{2,}", "`", text)
-    # Remove extra spaces
-    text = sub(r"\s+", " ", text).strip()
-    # If text doesn't end with punctuation, quotes, or closing brackets, add a period
-    if not END_PUNCT_RE.search(text):
-        text += "."
-    # V2: Wrap text with language tags
-    text = f"<{language}>{text}</{language}>"
-    # Return
+    # Symbol replacements (unicode normalization removed - handled by model's text processor)
+    for old, new in SYMBOL_REPLACEMENTS:
+        text = text.replace(old, new)
+    # Clean whitespace
+    text = " ".join(text.split()).strip()
+    # Add period if needed
+    if len(text) > 0 and text[-1] not in ".!?;:,'\"')]}>":
+        text = text + "."
+    # Add language tags (use concatenation to avoid codegen issue with duplicate f-string vars)
+    text = "<" + lang + ">" + text + "</" + lang + ">"
     return text
+
+def _encode_text(text_list: list[str]) -> tuple[ndarray, ndarray]:
+    """
+    Convert text to unicode indices and create attention mask.
+    """
+    # Get lengths
+    text_lengths = array([len(t) for t in text_list], dtype=int64)
+    max_len = int(np_max(text_lengths))
+    # Build text_ids as flat list then reshape (avoids 2D element-by-element assignment)
+    # Start with first text's row to establish type, then use + for subsequent
+    first_text = text_list[0]
+    first_row: list[int] = [UNICODE_INDEXER[ord(first_text[j])] for j in range(len(first_text))]
+    first_padding: list[int] = [0 for _ in range(max_len - len(first_text))]
+    text_ids_flat: list[int] = first_row + first_padding
+    # Process remaining texts (if any)
+    for idx in range(1, len(text_list)):
+        text = text_list[idx]
+        row: list[int] = [UNICODE_INDEXER[ord(text[j])] for j in range(len(text))]
+        padding: list[int] = [0 for _ in range(max_len - len(text))]
+        text_ids_flat = text_ids_flat + row
+        text_ids_flat = text_ids_flat + padding
+    text_ids = array(text_ids_flat, dtype=int64).reshape(len(text_list), max_len)
+    # Create mask
+    ids = array([i for i in range(max_len)], dtype=int64)
+    mask = (ids < text_lengths.reshape(-1, 1)).astype(float32)
+    text_mask = mask.reshape(-1, 1, max_len)
+    return text_ids, text_mask
 
 def _sample_noisy_latent(duration: ndarray) -> tuple[ndarray, ndarray]:
     """
-    Sample noisy latent from normal distribution and apply mask.
+    Sample noisy latent representation for diffusion.
     """
     bsz = len(duration)
-    wav_len_max = max(duration) * sample_rate
-    wav_lengths = (duration * sample_rate).astype(int64)
-    chunk_size = base_chunk_size * chunk_compress_factor
-    latent_len = ((wav_len_max + chunk_size - 1) / chunk_size).astype(int32)
-    noisy_latent = randn(bsz, latent_dim * chunk_compress_factor, latent_len).astype(float32)
-    latent_mask = _get_latent_mask(
-        wav_lengths,
-        base_chunk_size,
-        chunk_compress_factor
-    )
+    wav_len_max = np_max(duration) * SAMPLE_RATE
+    wav_lengths = (duration * SAMPLE_RATE).astype(int64)
+    chunk_size = BASE_CHUNK_SIZE * CHUNK_COMPRESS_FACTOR
+    latent_len = int((wav_len_max + chunk_size - 1) / chunk_size)
+    latent_dim = LATENT_DIM * CHUNK_COMPRESS_FACTOR
+    # Use pre-generated noise (slice to required latent_len)
+    noisy_latent = PREGENERATED_NOISE[:, :, :latent_len]
+    # Create latent mask
+    latent_size = BASE_CHUNK_SIZE * CHUNK_COMPRESS_FACTOR
+    latent_lengths = ((wav_lengths + latent_size - 1) // latent_size).astype(int64)
+    max_latent_len = int(np_max(latent_lengths))
+    ids = array([i for i in range(max_latent_len)], dtype=int64)
+    mask = (ids < latent_lengths.reshape(-1, 1)).astype(float32)
+    latent_mask = mask.reshape(-1, 1, max_latent_len)
+    # Apply mask
     noisy_latent = noisy_latent * latent_mask
     return noisy_latent, latent_mask
 
-def _get_latent_mask(
-    wav_lengths: ndarray,
-    base_chunk_size: int,
-    chunk_compress_factor: int
-) -> ndarray:
-    """
-    Get latent mask from wav lengths.
-    """
-    latent_size = base_chunk_size * chunk_compress_factor
-    latent_lengths = (wav_lengths + latent_size - 1) // latent_size
-    latent_mask = _length_to_mask(latent_lengths)
-    return latent_mask
-
-def _length_to_mask(
-    lengths: ndarray,
-    *,
-    max_len: int | None=None
-) -> ndarray:
-    """
-    Convert lengths to binary mask with shape (B, 1, max_len).
-    """
-    max_len = max_len or lengths.max()
-    ids = arange(0, max_len)
-    mask = (ids < expand_dims(lengths, axis=1)).astype(float32)
-    return mask.reshape(-1, 1, max_len)
-
 if __name__ == "__main__":
     import sounddevice as sd
+    # Generate audio
     audio = supertonic_2(
-        text=(
-            "Supertonic 2 is a multilingual text-to-speech model that "
-            "supports English, Korean, Spanish, Portuguese, and French."
-        ),
+        text="I like one of my options more.",
         voice="F2"
     )
-    sd.play(audio, samplerate=sample_rate)
+    print(f"Generated audio shape: {audio.shape}")
+    print(f"Duration: {len(audio) / SAMPLE_RATE:.2f} seconds")
+    # Playback
+    sd.play(audio, samplerate=SAMPLE_RATE)
     sd.wait()
