@@ -67,11 +67,19 @@ IPA_CODE_MAP = _create_word_index_dictionary()
 @compile(
     sandbox=Sandbox().pip_install("huggingface_hub", "onnxruntime"),
     metadata=[
-        OnnxRuntimeInferenceSessionMetadata(session=kitten_model, model_path=kitten_model_path),
-        OnnxRuntimeInferenceSessionMetadata(session=byt5_model, model_path=byt5_model_path),
+        OnnxRuntimeInferenceSessionMetadata(
+            session=kitten_model,
+            model_path=kitten_model_path,
+            providers=["cpu"]
+        ),
+        OnnxRuntimeInferenceSessionMetadata(
+            session=byt5_model,
+            model_path=byt5_model_path,
+            providers=["cpu"]
+        ),
     ]
 )
-def kitten_tts(
+def kitten_tts_nano_0_2(
     text: Annotated[
         str,
         Parameter.Generic(description="Text to generate speech from.")
@@ -155,7 +163,7 @@ def _convert_to_ipa(
 if __name__ == "__main__":
     import sounddevice as sd
     # Generate audio
-    audio = kitten_tts(
+    audio = kitten_tts_nano_0_2(
         text="Kitten is such an odd model.",
         voice="expr-voice-3-m"
     )
