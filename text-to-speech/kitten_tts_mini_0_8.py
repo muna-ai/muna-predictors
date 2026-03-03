@@ -64,7 +64,6 @@ IPA_CODE_MAP = _create_word_index_dictionary()
 
 @compile(
     sandbox=Sandbox().pip_install("huggingface_hub", "onnxruntime"),
-    targets=["ios", "macos"],
     metadata=[
         OnnxRuntimeInferenceSessionMetadata(
             session=kitten_model,
