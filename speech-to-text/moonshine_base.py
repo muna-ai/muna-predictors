@@ -74,7 +74,7 @@ def moonshine_base(
     Parameter.Generic(description="Transcribed text from the audio.")
 ]:
     """
-    Transcribe audio to text with Moonshine Base.
+    Transcribe audio to text with Moonshine (base).
     """
     samples = audio.astype(float32).flatten()
     input_values = samples.reshape(1, -1)
