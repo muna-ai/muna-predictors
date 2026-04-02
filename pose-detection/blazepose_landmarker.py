@@ -82,7 +82,7 @@ KEYPOINT_NAMES = [
         TFLiteInterpreterMetadata(interpreter=interpreter, model_path=model_path),
     ]
 )
-def blazepose_landmarks_lite(
+def blazepose_landmarker_lite(
     image: Annotated[Image.Image, Parameter.Generic(description="Input image.")],
     roi: Annotated[RotatedRect, Parameter.Generic(description="Pose RoI.")]
 ) -> Annotated[FullBodyPose, Parameter.Generic(description="Full body pose.")]:
@@ -250,7 +250,7 @@ if __name__ == "__main__":
         height=1.293550729751587,
         rotation=9.145028114318848
     )
-    pose = blazepose_landmarks_lite(image, roi)
+    pose = blazepose_landmarker_lite(image, roi)
     # Visualize
     print_json(data=TypeAdapter(FullBodyPose).dump_python(pose))
     annotated_image = _visualize_full_body_poses(image, [pose])
