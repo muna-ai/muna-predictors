@@ -112,7 +112,7 @@ STFT_WINDOW = hann_window(N_FFT)
     ]
 )
 @inference_mode()
-def whisper_large_v3_trt(
+def whisper_large_v3(
     audio: Annotated[
         list[ndarray],
         Parameter.Audio(
