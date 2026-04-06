@@ -31,7 +31,7 @@ model = WhisperForConditionalGeneration.from_pretrained(
 model.eval()
 _sample_rate = 16_000
 _num_layers = model.config.decoder_layers
-_batch_dim = Dim("batch", min=1, max=8)
+_batch_dim = Dim("batch", min=1, max=16)
 
 class WhisperEncoder(Module):
     def __init__(self, encoder):
@@ -94,8 +94,13 @@ HOP_LENGTH = _feature_extractor.hop_length
 MEL_FILTERS = from_numpy(_feature_extractor.mel_filters).float()
 STFT_WINDOW = hann_window(N_FFT)
 
+_CHUNK_SAMPLES = 480000 # 30s window at 16kHz
+_MAX_BATCH = _batch_dim.max
+
 @compile(
+    tag="@yusuf/whisper-large-v3-trt-h100",
     targets=["x86_64-unknown-linux-gnu"],
+    access="unlisted",
     sandbox=Sandbox()
         .pip_install("torch", index_url="https://download.pytorch.org/whl/cpu")
         .pip_install("huggingface_hub", "transformers"),
@@ -108,6 +113,8 @@ STFT_WINDOW = hann_window(N_FFT)
                 decode=WhisperDecoderDecode(model.model.decoder, model.proj_out, _num_layers).eval(),
             ),
             input_shapes=[(_batch_dim, 128, 3000)],
+            cuda_arch="sm_90",              # target Hopper
+            hardware_compatibility="none"   # enable Hopper-specific optimizations
         ),
     ]
 )
@@ -128,22 +135,46 @@ def whisper_large_v3(
     """
     Transcribe audio to text with OpenAI Whisper Large V3.
     """
-    # Create mel spectrograms
-    mels = [_compute_window_log_mel(from_numpy(item).flatten()) for item in audio]
+    # Chunk each audio input into 30s segments
+    waveforms = [from_numpy(item).flatten() for item in audio]
+    chunks = [waveforms[0][:_CHUNK_SAMPLES]]
+    chunk_owners = [0]
+    chunks.clear()
+    chunk_owners.clear()
+    for idx, w in enumerate(waveforms):
+        for start in range(0, max(1, w.shape[0]), _CHUNK_SAMPLES):
+            chunks.append(w[start:start + _CHUNK_SAMPLES])
+            chunk_owners.append(idx)
+    # Transcribe chunks in batches that fit the TRT engine
+    chunk_texts = [""]
+    chunk_texts.clear()
+    for batch_start in range(0, len(chunks), _MAX_BATCH):
+        chunk_texts += _transcribe_chunks(chunks[batch_start:batch_start + _MAX_BATCH])
+    # Concatenate chunk transcriptions per original audio input
+    results = [""] * len(audio)
+    for chunk_idx, audio_idx in enumerate(chunk_owners):
+        text = chunk_texts[chunk_idx].strip()
+        if text:
+            results[audio_idx] = (results[audio_idx] + " " + text).strip()
+    # Return
+    return results
+
+def _transcribe_chunks(waveforms: list[Tensor]) -> list[str]:
+    """
+    Transcribe a batch of waveform chunks, each ≤30s.
+    """
+    mels = [_compute_window_log_mel(w) for w in waveforms]
     mel_batch = torch.stack(mels)
-    # Generate tokens
     token_ids = model.generate(
         input_features=mel_batch,
         max_new_tokens=444,
         language="en",
         task="transcribe",
     )
-    # Decode
     results = [tokenizer.decode(
-        token_ids[b],
+        token_ids[i],
         skip_special_tokens=True
-    ) for b in range(len(audio))]
-    # Return
+    ) for i in range(len(waveforms))]
     return results
 
 def _compute_window_log_mel(waveform: Tensor) -> Tensor:
@@ -163,9 +194,10 @@ def _compute_window_log_mel(waveform: Tensor) -> Tensor:
 if __name__ == "__main__":
     from json import dumps
     import librosa
+    from pathlib import Path
     # Load audio
-    path = "test/media/librispeech_sample.flac"
-    data, sr = librosa.load(path, sr=_sample_rate, mono=True)
+    audio_path = Path(__file__).parent / "demo" / "speech.wav"
+    data, sr = librosa.load(audio_path, sr=_sample_rate, mono=True)
     # Transcribe
     transcriptions = whisper_large_v3([data])
     # Log

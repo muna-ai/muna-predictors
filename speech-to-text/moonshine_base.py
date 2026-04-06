@@ -109,6 +109,7 @@ def moonshine_base(
 
 if __name__ == "__main__":
     import librosa
-    data, _ = librosa.load("test/media/librispeech_sample.wav", sr=sample_rate, mono=True)
-    text = moonshine_base(data)
+    audio_path = Path(__file__).parent / "demo" / "speech.wav"
+    audio, _ = librosa.load(audio_path, sr=sample_rate, mono=True)
+    text = moonshine_base(audio)
     print(text)
