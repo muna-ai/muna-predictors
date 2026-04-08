@@ -18,7 +18,7 @@ tokenizer = AutoTokenizer.from_pretrained(REPO_ID)
 
 @compile(
     sandbox=Sandbox()
-        .pip_install("torch", "torchvision", index_url="https://download.pytorch.org/whl/cpu")
+        .pip_install("torchvision", index_url="https://download.pytorch.org/whl/cpu")
         .pip_install("onnxruntime", "transformers"),
     metadata=[
         OnnxRuntimeInferenceMetadata(
