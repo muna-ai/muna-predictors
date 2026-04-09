@@ -209,7 +209,7 @@ def blazepose_detector_lite(
     # Create keypoints
     kp_x = raw_keypoints[:,:,0] / input_width + anchors[:,None,0]
     kp_y = raw_keypoints[:,:,1] / input_height + anchors[:,None,1]
-    keypoints = stack((kp_x, kp_y), dim=-1) * scale_factors
+    keypoints = stack([kp_x, kp_y], dim=-1) * scale_factors
     # Apply NMS
     boxes_xyxy = box_convert(boxes_cxcywh, in_fmt="cxcywh", out_fmt="xyxy")
     keep_indices = nms(boxes_xyxy, scores=scores, iou_threshold=max_iou)
