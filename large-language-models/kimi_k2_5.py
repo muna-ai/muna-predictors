@@ -19,12 +19,11 @@ from muna.beta.openai import (
     ChatCompletion, ChatCompletionChunk, DeltaMessage,
     Message, StreamChoice
 )
-from os import environ
 from time import time
 from transformers import AutoConfig, AutoModelForCausalLM, AutoTokenizer
 from transformers.generation import ContinuousBatchingConfig, GenerationConfig
 from transformers.generation.continuous_batching import RequestStatus
-from transformers.modeling_utils import PreTrainedModel as _PTM
+from transformers.modeling_utils import PreTrainedModel
 from typing import Annotated, Iterator
 from uuid import uuid4
 
@@ -36,12 +35,12 @@ if not hasattr(_t_import_utils, "is_torch_fx_available"):
 # Helpers for loading the model in transformers v5
 @contextmanager
 def suppress_init_weights():
-    saved = _PTM.init_weights
-    _PTM.init_weights = lambda self, *a, **kw: None
+    saved = PreTrainedModel.init_weights
+    PreTrainedModel.init_weights = lambda self, *a, **kw: None
     try:
         yield
     finally:
-        _PTM.init_weights = saved
+        PreTrainedModel.init_weights = saved
 
 @contextmanager
 def force_eager_attn(cfg):
@@ -142,6 +141,7 @@ def kimi_k2_5(
     """
     Stream chat completions from Kimi K2.5 (NVFP4).
     """
+    # Tokenize message history
     input_ids = tokenizer.apply_chat_template(
         [{ "role": m.role, "content": m.content } for m in messages],
         add_generation_prompt=True,
@@ -174,20 +174,47 @@ def kimi_k2_5(
             finish_reason=None,
         )],
     )
-    # Stream tokens for *this* request only; the manager filters its output
-    # queue by `request_id` so we never see another caller's tokens.
+    # Stream tokens from the manager
     completion_tokens = 0
+    seen = 0
     for chunk in manager.request_id_iter(request_id=completion_id):
-        new_token_ids = chunk.generated_tokens[-1:]
-        token_text = tokenizer.decode(new_token_ids, skip_special_tokens=True)
-        completion_tokens += 1
+        new_token_ids = chunk.generated_tokens[seen:]
+        seen = len(chunk.generated_tokens)
         finished = chunk.status == RequestStatus.FINISHED
+        # Check for empty chunk
+        if not new_token_ids:
+            # Usually signifies a status change
+            if not finished:
+                continue
+            # Yield end of stream
+            else:
+                yield ChatCompletionChunk(
+                    id=completion_id,
+                    created=created,
+                    model=CHECKPOINT,
+                    choices=[StreamChoice(
+                        index=0,
+                        delta=DeltaMessage(content=""),
+                        finish_reason="stop",
+                    )],
+                    usage=ChatCompletion.Usage(
+                        prompt_tokens=prompt_tokens,
+                        completion_tokens=completion_tokens,
+                        total_tokens=prompt_tokens + completion_tokens,
+                    ),
+                )
+                break
+        # Decode
+        token_text = tokenizer.decode(new_token_ids, skip_special_tokens=True)
+        completion_tokens += len(new_token_ids)
         finish_reason = "stop" if finished else None
+        # Create usage
         usage = ChatCompletion.Usage(
             prompt_tokens=prompt_tokens,
             completion_tokens=completion_tokens,
             total_tokens=prompt_tokens + completion_tokens,
         ) if finished else None
+        # Yield chunk
         yield ChatCompletionChunk(
             id=completion_id,
             created=created,
@@ -199,6 +226,7 @@ def kimi_k2_5(
             )],
             usage=usage,
         )
+        # Handle finish with content
         if finished:
             break
 
