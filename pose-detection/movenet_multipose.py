@@ -40,7 +40,10 @@ class Pose(BaseModel):
     confidence: float = Field(description="Pose confidence score in range [0, 1].")
     keypoints: list[Keypoint] = Field(description="Pose keypoints.")
 
-model_path = hf_hub_download("muna-ai/natml-hub", "movenet-multipose-lightning-256-fp16-cle.tflite")
+model_path = hf_hub_download(
+    repo_id="muna-ai/natml-hub",
+    filename="movenet-multipose-lightning-256-fp16-cle-gpu.tflite"
+)
 model = Interpreter(model_path)
 model.allocate_tensors()
 input_idx = model.get_input_details()[0]["index"]
